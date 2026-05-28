@@ -5,7 +5,7 @@
 | 模块 | 状态 | 记录 |
 |------|------|------|
 | RAG | 入门完成 | [rag-learning/docs/learning-log.md](../rag-learning/docs/learning-log.md) |
-| MCP | 待开始 | - |
+| MCP | 入门完成 | [mcp-learning/docs/learning-log.md](../mcp-learning/docs/learning-log.md) |
 | LangGraph | 待开始 | - |
 | Multi-Agent | 待开始 | - |
 | AI Coding | 待开始 | - |
