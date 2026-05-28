@@ -203,6 +203,16 @@ full_texts = [f"{doc['title']} {doc['content']}" for doc in documents]
 | 3. 换相似度 | 欧氏距离排序反向 | 算法方向必须和排序逻辑一致 |
 | 4. 加对话历史 | previous_answer 没定义 | 历史要贯穿 pipeline 全链路 |
 
+---
+
+### 练习5：替换为真实文件
+
+> 详见 [exercises/exercise-05.md](../exercises/exercise-05.md)
+
+知识库从硬编码改为读取 `data/` 目录下的 `.txt` / `.md` 文件。新增 `load_documents_from_dir()` 函数：解析文件首行作为 title，其余作为 content，输出格式和之前 `DOCUMENTS` 完全一致，`RAGPipeline` 一行不改。
+
+**关键收获**：数据加载和 RAG 逻辑解耦后，切换数据源只需换 loader，Pipeline 不感知。这是生产级 RAG 的第一个扩展点——从 `load_documents_from_dir()` 进化到 `DocumentLoader → Chunker → VectorStore`。
+
 ### 下一步
 
-进阶练习 5-6 或继续 MCP 学习
+进阶练习 6（BM25 混合检索）或继续 MCP 学习

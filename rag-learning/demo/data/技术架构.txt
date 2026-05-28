@@ -1,0 +1,3 @@
+# 技术架构
+
+AI Tutor后端使用FastAPI框架，数据库使用PostgreSQL，向量数据库使用Milvus，LLM服务对接DeepSeek和OpenAI。前端使用React+TypeScript，部署在阿里云ACK集群。系统日均处理请求量约100万次，P99延迟控制在200ms以内。
