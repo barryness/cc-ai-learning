@@ -65,6 +65,8 @@
 
 ### 练习1：扩展知识库
 
+> 详见 [exercises/exercise-01.md](../exercises/exercise-01.md)
+
 新增了 3 篇文档（vibe coding工具、AI中的养龙虾、大数据实时处理工具），遇到一个新问题。
 
 **Q: "vibe coding工具有哪些？"没有答案返回，我明确添加了资料。**
