@@ -26,7 +26,8 @@ import jieba
 from dotenv import load_dotenv
 from openai import OpenAI
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+# from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.metrics.pairwise import euclidean_distances
 
 # ============================================================================
 # 第1步：加载配置
@@ -163,7 +164,10 @@ class SimpleRetriever:
         # 步骤2：计算余弦相似度
         # cosine_similarity 返回一个矩阵，每个值在 [0, 1] 之间
         # 1.0 = 完全相关，0.0 = 毫不相关
-        similarities = cosine_similarity(query_vector, self.doc_vectors)[0]
+
+        # similarities = cosine_similarity(query_vector, self.doc_vectors)[0]
+        similarities = euclidean_distances(query_vector, self.doc_vectors)[0]
+        
         # similarities 是一个数组 [0.12, 0.05, 0.0, 0.08, 0.02, 0.0, 0.0]
         # 每个值代表 query 对应该文档的相似度
 
@@ -318,13 +322,13 @@ if __name__ == "__main__":
         "AI Tutor产品支持哪些编程语言？价格是多少？",
 
         # 问题4：知识库中没有相关信息
-        # "公司有哪些竞争对手？",
+        "公司有哪些竞争对手？",
 
-        # # 问题5：知识库中的技术内容
-        # "Python的map函数是做什么的？",
-        # "vibe coding工具有哪些？",
-        # "AI中常说的养龙虾是什么？",
-        # "实时数据处理使用的什么工具？",
+        # 问题5：知识库中的技术内容
+        "Python的map函数是做什么的？",
+        "vibe coding工具有哪些？",
+        "AI中常说的养龙虾是什么？",
+        "实时数据处理使用的什么工具？",
     ]
 
     for query in test_queries:
