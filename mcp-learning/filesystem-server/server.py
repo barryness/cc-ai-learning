@@ -23,6 +23,8 @@
 import asyncio
 import os
 import json
+import time
+import mimetypes
 import fnmatch
 from pathlib import Path
 from mcp.server import Server
@@ -150,6 +152,20 @@ async def list_tools() -> list[Tool]:
                 "required": ["path"],
             },
         ),
+        Tool(
+            name="get_file_info",
+            description="获取文件的详细信息：大小、修改时间、行数、类型等",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "文件路径",
+                    },
+                },
+                "required": ["path"],
+            },
+        ),
     ]
 
 
@@ -234,6 +250,33 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 type="text",
                 text=f"✅ 已删除 {path}",
             )]
+
+
+        elif name == "get_file_info":
+            path = safe_path(arguments["path"])
+            if not path.exists():
+                return [TextContent(type="text", text=f"文件不存在：{path}")]
+
+            stat = path.stat()
+            info_lines = [
+                f"文件路径：{path}",
+                f"文件大小：{_fmt_size(stat.st_size)}（{stat.st_size} bytes）",
+                f"修改时间：{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(stat.st_mtime))}",
+                f"创建时间：{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(stat.st_ctime))}",
+                f"权限：{oct(stat.st_mode)[-3:]}",
+            ]
+
+            # 如果是文本文件，统计行数
+            if path.suffix in ('.py', '.txt', '.md', '.json', '.yaml', '.yml', '.html', '.css', '.js'):
+                try:
+                    content = path.read_text(encoding="utf-8")
+                    lines = content.split('\n')
+                    info_lines.append(f"行数：{len(lines)}")
+                    # 空文件特殊处理：split('\n') 也会产生 1 个元素
+                except UnicodeDecodeError:
+                    info_lines.append("类型：二进制文件")
+
+            return [TextContent(type="text", text="\n".join(info_lines))]
 
         else:
             return [TextContent(type="text", text=f"未知工具：{name}")]
