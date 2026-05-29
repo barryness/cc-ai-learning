@@ -77,6 +77,25 @@ async def main():
     r = await caller.call_tool("read_file", {"path": "../../../etc/passwd"})
     print(r)
 
+    # ====== 场景6：删除文件 ======
+    print("─" * 50)
+    print("[场景6] 删除文件测试")
+    print("─" * 50)
+
+    # 先创建一个临时文件
+    r = await caller.call_tool("write_file", {
+        "path": "temp.txt",
+        "content": "临时文件内容",
+    })
+    print(r)
+    # 删除它
+    r = await caller.call_tool("delete_file", {"path": "temp.txt"})
+    print(r)
+    # 确认已删除（应该报文件不存在）
+    r = await caller.call_tool("read_file", {"path": "temp.txt"})
+    print(r)
+
+
     await caller.close()
     print("\n🔌 连接已关闭")
 

@@ -3,11 +3,12 @@
   文件系统 MCP Server —— 让 LLM 操作本地文件
 =============================================================================
 
-提供 4 个工具：
+提供 5 个工具：
   1. list_directory —— 列出目录内容
   2. read_file      —— 读取文件内容
   3. write_file     —— 写入文件
   4. search_files   —— 按名称搜索文件
+  5. delete_file    —— 删除文件
 
 安全设计：
   - allowed_root: 只允许操作指定目录，防止 LLM 访问系统文件
@@ -135,6 +136,20 @@ async def list_tools() -> list[Tool]:
                 "required": ["pattern"],
             },
         ),
+        Tool(
+            name="delete_file",
+            description="删除指定文件（不能删除目录）",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "要删除的文件路径",
+                    },
+                },
+                "required": ["path"],
+            },
+        ),
     ]
 
 
@@ -205,6 +220,19 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             return [TextContent(
                 type="text",
                 text=f"搜索 '{pattern}' 结果（共 {len(matches)} 个）：\n" + "\n".join(matches) if matches else "未找到匹配文件",
+            )]
+
+        elif name == "delete_file":
+            path = safe_path(arguments["path"])
+            if not path.exists():
+                return [TextContent(type="text", text=f"文件不存在：{path}")]
+            if path.is_dir():
+                return [TextContent(type="text", text=f"不能删除目录，请指定文件：{path}")]
+
+            path.unlink()
+            return [TextContent(
+                type="text",
+                text=f"✅ 已删除 {path}",
             )]
 
         else:
