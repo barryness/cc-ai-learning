@@ -113,6 +113,12 @@ sudo rm -rf /Library/Frameworks/Python.framework/Versions/3.13
 sudo rm -f /usr/local/bin/python3.9 /usr/local/bin/python3.9-config
 sudo rm -f /usr/local/bin/python3.13 /usr/local/bin/python3.13-config
 
+# 4. 检查 uv 等工具安装的 Python
+ls ~/.local/share/uv/python/          # 查看 uv 安装的版本
+uv python list                         # 列出所有 uv 管理的 Python
+rm -rf ~/.local/share/uv/python/cpython-3.11-*   # 删除不需要的版本
+rm -f ~/.local/bin/python3.11                     # 删除 uv 创建的符号链接
+
 # 4. 清理 shell 配置文件中的 PATH
 ```
 
@@ -156,6 +162,7 @@ echo $PATH | tr ':' '\n' | grep -i python
 - [x] 删除 Python 3.7 PATH 引用（2026-06-01）
 - [x] 清理 ~/.zprofile 中 3.9/3.13 PATH（2026-06-01）
 - [x] 清理 ~/.bash_profile 中 3.9/3.7 PATH（2026-06-01）
+- [x] 删除 uv 安装的 Python 3.11（2026-06-01）
 - [x] 清除 zsh 补全缓存 ~/.zcompdump*（2026-06-01）
 - [x] 保留 Python 3.14 作为唯一版本
 - [x] 安装全部 LLM 学习相关依赖
