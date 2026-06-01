@@ -201,7 +201,16 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             if path.stat().st_size > MAX_FILE_SIZE:
                 return [TextContent(type="text", text=f"文件超过 1MB 限制，拒绝读取")]
 
-            content = path.read_text(encoding="utf-8")
+            encodings = ["utf-8", "gbk", "latin-1"]
+            content = None
+            for enc in encodings:
+                try:
+                    content = path.read_text(encoding=enc)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            if content is None:
+                return [TextContent(type="text", text=f"无法解码文件：{path}，不支持的编码格式")]
             return [TextContent(
                 type="text",
                 text=f"=== {path.name} ===\n{content}",
@@ -211,11 +220,16 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             path = safe_path(arguments["path"])
             content = arguments["content"]
 
-            # 确保父目录存在
-            path.parent.mkdir(parents=True, exist_ok=True)
-
-            # path.write_text() 写入文本，encoding='utf-8' 处理中文
-            path.write_text(content, encoding="utf-8")
+            try:
+                # 确保父目录存在
+                path.parent.mkdir(parents=True, exist_ok=True)
+                # path.write_text() 写入文本，encoding='utf-8' 处理中文
+                path.write_text(content, encoding="utf-8")
+            except PermissionError:
+                return [TextContent(
+                    type="text",
+                    text=f"没有写入权限：{path}。请检查目录权限。",
+                )]
             return [TextContent(
                 type="text",
                 text=f"✅ 已写入 {len(content)} 个字符到 {path}",
@@ -225,6 +239,11 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             pattern = arguments["pattern"]
             directory = arguments.get("directory", ".")
             base = safe_path(directory)
+
+            if not base.exists():
+                return [TextContent(type="text", text=f"目录不存在：{base}")]
+            if not base.is_dir():
+                return [TextContent(type="text", text=f"不是目录：{base}")]
 
             matches = []
             # base.rglob(*) 递归遍历所有文件和子目录

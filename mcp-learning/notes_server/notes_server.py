@@ -68,21 +68,22 @@ async def list_tools() -> list[Tool]:
     return [
         Tool(
             name="add_note",
-            description="创建一条新的备忘录，用于记录待办事项、想法、重要信息等",
+            description="创建一条新的备忘录。适用于记录待办事项、重要信息、灵感想法等场景。"
+                        "创建的笔记会保存到本地 JSON 文件持久化存储。",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "title": {
                         "type": "string",
-                        "description": "备忘录标题，例如 '周五开会'、'购物清单'",
+                        "description": "备忘录标题，简洁概括内容。例如 '周五开会'、'学习计划'",
                     },
                     "content": {
                         "type": "string",
-                        "description": "备忘录正文内容",
+                        "description": "备忘录正文内容，支持多行文本。可以是详细的描述、代码片段、列表等。",
                     },
                     "tags": {
                         "type": "string",
-                        "description": "标签，多个用逗号分隔。例如 '工作,重要'。可选参数。",
+                        "description": "标签，多个标签用英文逗号分隔。例如 '工作,重要,待办'。可选参数，不传则不添加标签。",
                     },
                 },
                 "required": ["title", "content"],
@@ -90,26 +91,28 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="list_notes",
-            description="列出所有备忘录，可按标签筛选",
+            description="列出所有已保存的备忘录。支持按标签精确筛选（需完整匹配标签名）。"
+                        "返回每条备忘录的 ID、标题、标签列表和创建时间。",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "tag": {
                         "type": "string",
-                        "description": "按标签筛选，例如 '工作'。不传则列出全部。",
+                        "description": "按标签精确筛选，例如 '工作' 只返回含 '工作' 标签的笔记。不传则列出全部。",
                     },
                 },
             },
         ),
         Tool(
             name="search_notes",
-            description="在标题和内容中搜索关键词，返回匹配的备忘录",
+            description="在备忘录的标题和正文内容中搜索关键词（全文搜索），返回内容匹配的备忘录列表。"
+                        "注意：仅搜索已保存内容，不支持模糊匹配或拼音搜索。",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "keyword": {
                         "type": "string",
-                        "description": "搜索关键词，在标题和正文中匹配",
+                        "description": "搜索关键词，在标题和正文中执行子串匹配（大小写不敏感）。例如 '会议' 会匹配标题或内容中包含 '会议' 的备忘录。",
                     },
                 },
                 "required": ["keyword"],
@@ -117,13 +120,13 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="delete_note",
-            description="删除指定 ID 的备忘录。ID 可以从 list_notes 返回结果中获取。",
+            description="删除指定 ID 的备忘录，操作不可撤销。ID 必须从 list_notes 返回结果中获取。",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "note_id": {
                         "type": "string",
-                        "description": "备忘录 ID，格式如 '20260529-001'",
+                        "description": "备忘录 ID，格式如 '20260529-001'。通过 list_notes 工具获取可用的 ID。",
                     },
                 },
                 "required": ["note_id"],
