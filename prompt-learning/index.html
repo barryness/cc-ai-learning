@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompt Engineering 实战指南</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2a2d3a;
+    --text: #c9d1d9;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --orange: #d2991d;
+    --red: #f85149;
+    --purple: #a371f7;
+    --cyan: #39c5cf;
+    --pink: #db61a2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7;
+  }
+
+  /* ── Hero ────────────────────────── */
+  .hero {
+    background: linear-gradient(135deg, #1a1d27 0%, #1f2937 50%, #111827 100%);
+    border-bottom: 1px solid var(--border); padding: 60px 24px 48px; text-align: center;
+  }
+  .hero h1 { font-size: 2.8em; background: linear-gradient(135deg, var(--accent), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+  .hero p { color: var(--muted); font-size: 1.15em; max-width: 640px; margin: 0 auto; }
+
+  /* ── Tabs ────────────────────────── */
+  .tabs {
+    display: flex; gap: 2px; background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 0 24px; position: sticky; top: 0; z-index: 10;
+  }
+  .tab-btn {
+    background: none; border: none; color: var(--muted); padding: 14px 24px;
+    font-size: .95em; cursor: pointer; border-bottom: 2px solid transparent;
+    transition: .2s; font-family: inherit;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── Content ─────────────────────── */
+  .tab-content { display: none; padding: 40px 24px; max-width: 960px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+
+  /* ── Cards ───────────────────────── */
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 28px; margin-bottom: 24px;
+  }
+  .card h3 { font-size: 1.25em; margin-bottom: 12px; color: #e6edf3; }
+  .card p, .card li { color: var(--text); }
+
+  /* ── Element badges ──────────────── */
+  .elements-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 32px 0; }
+  .el-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 24px 16px; text-align: center; cursor: pointer; transition: .2s;
+  }
+  .el-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .el-card .icon { font-size: 2em; margin-bottom: 8px; }
+  .el-card .name { font-weight: 700; font-size: 1.1em; margin-bottom: 4px; }
+  .el-card .question { font-size: .85em; color: var(--muted); }
+  .el-card.role { border-top: 3px solid var(--accent); }
+  .el-card.context { border-top: 3px solid var(--green); }
+  .el-card.constraint { border-top: 3px solid var(--orange); }
+  .el-card.example { border-top: 3px solid var(--purple); }
+  .el-card.schema { border-top: 3px solid var(--pink); }
+
+  /* ── Version cards ───────────────── */
+  .ver-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 24px 0; }
+  .ver-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; position: relative; }
+  .ver-card .ver-num { font-size: .8em; font-weight: 700; padding: 3px 10px; border-radius: 20px; display: inline-block; margin-bottom: 10px; }
+  .ver-card.v1 .ver-num { background: rgba(248,81,73,.15); color: var(--red); }
+  .ver-card.v2 .ver-num { background: rgba(210,153,29,.15); color: var(--orange); }
+  .ver-card.v3 .ver-num { background: rgba(63,185,80,.15); color: var(--green); }
+  .ver-card.v4 .ver-num { background: rgba(88,166,255,.15); color: var(--accent); }
+  .ver-card .tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
+  .ver-card .tag { font-size: .75em; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border); color: var(--muted); }
+
+  /* ── Code blocks ─────────────────── */
+  pre {
+    background: #0d1117; border: 1px solid var(--border); border-radius: 8px;
+    padding: 20px; overflow-x: auto; font-size: .88em; line-height: 1.6;
+    margin: 16px 0;
+  }
+  code { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: .9em; }
+  pre code { font-size: .85em; }
+
+  /* ── Comparison table ────────────── */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: .92em; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { background: var(--card); color: var(--muted); font-weight: 600; font-size: .85em; text-transform: uppercase; }
+  .check { color: var(--green); }
+  .cross { color: var(--red); }
+
+  /* ── Exercise checklist ──────────── */
+  .exercise { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin-bottom: 16px; }
+  .exercise h4 { color: var(--accent); margin-bottom: 8px; }
+  .exercise .meta { display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0; }
+  .exercise .meta span { font-size: .8em; background: rgba(88,166,255,.1); padding: 3px 10px; border-radius: 10px; color: var(--accent); }
+  .checklist { list-style: none; padding: 0; }
+  .checklist li { padding: 6px 0; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .checklist li input[type=checkbox] { accent-color: var(--green); width: 16px; height: 16px; }
+
+  /* ── Responsive ──────────────────── */
+  @media (max-width: 900px) {
+    .ver-grid { grid-template-columns: repeat(2, 1fr); }
+    .elements-row { grid-template-columns: repeat(2, 1fr); }
+    .hero h1 { font-size: 2em; }
+  }
+  @media (max-width: 500px) {
+    .ver-grid { grid-template-columns: 1fr; }
+    .elements-row { grid-template-columns: 1fr; }
+    .tabs { overflow-x: auto; }
+    .tab-btn { padding: 12px 16px; white-space: nowrap; }
+  }
+
+  /* ── Tooltip ─────────────────────── */
+  .glossary { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+  .glossary dt { color: var(--muted); font-size: .8em; }
+  .glossary dd { margin: 0 16px 0 4px; font-weight: 600; font-size: .9em; }
+</style>
+</head>
+<body>
+
+<!-- ═══════ Hero ═══════ -->
+<div class="hero">
+  <h1>Prompt Engineering 实战指南</h1>
+  <p>好的 Prompt = 角色 + 背景 + 约束 + 示例 + 输出格式。<br>不是玄学，是工程。</p>
+</div>
+
+<!-- ═══════ Tabs ═══════ -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('guide')">📖 核心指南</button>
+  <button class="tab-btn" onclick="switchTab('examples')">🔬 案例对比</button>
+  <button class="tab-btn" onclick="switchTab('exercises')">✏️ 练习题</button>
+</div>
+
+<!-- ═══════ Tab 1: Guide ═══════ -->
+<div id="tab-guide" class="tab-content active">
+
+<div class="card">
+  <h3>🧠 什么是 Prompt Engineering</h3>
+  <p>LLM 的本质是"续写机器"——给定前文，预测下一个 Token。Prompt 决定了 LLM <strong>"从哪里开始想"</strong>，因此直接决定了输出的方向、质量、风格。</p>
+  <p style="margin-top:12px"><strong>核心认知</strong>：你不是在"命令"LLM，你是在给它设定一个"思考的起点"。起点不同，续写方向完全不同。</p>
+</div>
+
+<h2 style="margin:32px 0 16px">五要素总览</h2>
+<div class="elements-row">
+  <div class="el-card role" onclick="switchTab('examples')">
+    <div class="icon">🎭</div>
+    <div class="name">Role 角色</div>
+    <div class="question">你是谁？<br>→ 激活特定知识领域</div>
+  </div>
+  <div class="el-card context">
+    <div class="icon">📋</div>
+    <div class="name">Context 上下文</div>
+    <div class="question">背景是什么？<br>→ 限定信息范围</div>
+  </div>
+  <div class="el-card constraint">
+    <div class="icon">🚫</div>
+    <div class="name">Constraint 约束</div>
+    <div class="question">不能做什么？<br>→ 排除错误输出</div>
+  </div>
+  <div class="el-card example">
+    <div class="icon">📝</div>
+    <div class="name">Example 示例</div>
+    <div class="question">怎么做？<br>→ 示范期望的模式</div>
+  </div>
+  <div class="el-card schema">
+    <div class="icon">📐</div>
+    <div class="name">Schema 格式</div>
+    <div class="question">输出长什么样？<br>→ 控制格式和结构</div>
+  </div>
+</div>
+
+<!-- Role -->
+<div class="card">
+  <h3>🎭 Role（角色）—— 激活专业领域</h3>
+  <p>LLM 在训练时见过各种领域的文本。不指定角色 → 在所有知识区域取平均 → 泛泛而谈。设定角色 → 戴上专业眼镜 → 精准输出。</p>
+  <table>
+    <tr><th style="width:50%">❌ 模糊角色</th><th>✅ 精确角色</th></tr>
+    <tr><td>"你是一个专家"</td><td>"你是资深 MySQL DBA，10 年 OLAP 优化经验，精通索引诊断和慢查询优化"</td></tr>
+    <tr><td>"你是一个程序员"</td><td>"你是 Go 后端开发，专做高并发微服务，熟悉 K8s 和 gRPC"</td></tr>
+    <tr><td>"你是老师"</td><td>"你是幼儿园老师，用最简单的话、比喻和故事解释，每句话不超过 20 字"</td></tr>
+  </table>
+  <p style="margin-top:16px;font-size:.9em;color:var(--muted);">💡 原则：角色 = 身份 + 技能标签 + 经验年限。越具体，LLM 输出越专业。</p>
+</div>
+
+<!-- Context -->
+<div class="card">
+  <h3>📋 Context（上下文）—— 限定信息范围</h3>
+  <p>LLM 不知道你是谁、在做什么项目、有什么数据。不给 Context，它只能猜。猜错的代价 = 输出完全不可用。</p>
+  <dl class="glossary">
+    <dt>环境层</dt><dd>数据库版本、语言、框架</dd>
+    <dt>数据层</dt><dd>表名、字段、数据量级</dd>
+    <dt>目标层</dt><dd>你要达成什么、给谁用</dd>
+  </dl>
+</div>
+
+<!-- Constraint -->
+<div class="card">
+  <h3>🚫 Constraint（约束）—— 排除错误输出</h3>
+  <p>Constraint 是<strong>"排除你不想要的"</strong>。告诉 LLM"不能做什么"和告诉它"要做什么"同等重要。</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+    <div>
+      <strong style="color:var(--red)">❌ 只说"要什么"</strong>
+      <pre><code>写一个高效的查询</code></pre>
+    </div>
+    <div>
+      <strong style="color:var(--green)">✅ 同时说"不要什么"</strong>
+      <pre><code>写一个能走索引的查询
+不要用 SELECT *
+子查询不超过 2 层
+禁止全表扫描</code></pre>
+    </div>
+  </div>
+</div>
+
+<!-- Example -->
+<div class="card">
+  <h3>📝 Example（示例）—— 最被低估的要素</h3>
+  <p>LLM 擅长<strong>模式匹配</strong>。一个例子比 100 行描述更有效。这叫 <strong>In-Context Learning</strong>——不修改模型参数，仅靠 Prompt 中的例子改变行为。</p>
+  <table>
+    <tr><th>Zero-shot</th><td>只给指令 → LLM 自由发挥 → 质量无法控制</td></tr>
+    <tr><th>Few-shot</th><td>给 1-3 个例子 → LLM 模仿注释风格/缩进/命名 → 质量稳定可控</td></tr>
+  </table>
+</div>
+
+<!-- Schema -->
+<div class="card">
+  <h3>📐 Output Schema（输出格式）—— 控制结构</h3>
+  <p>即使输出质量高，格式不对也无法直接用。Schema 精确控制输出结构。</p>
+  <table>
+    <tr><th>方式</th><th>适用场景</th><th>示例</th></tr>
+    <tr><td>描述式</td><td>简单任务</td><td>"- 需求理解：\n- SQL：\n- 索引建议："</td></tr>
+    <tr><td>JSON Schema</td><td>需程序解析</td><td>{"sql": "...", "index": "...", "explain": "..."}</td></tr>
+    <tr><td>Markdown 模板</td><td>给人看的文档</td><td>## 需求\n## SQL\n## 关键逻辑\n## 注意事项</td></tr>
+  </table>
+</div>
+
+<!-- Template -->
+<div class="card">
+  <h3>📋 通用 Prompt 模板</h3>
+  <pre><code>你是 {角色}，{经验}，擅长 {技能标签}。
+
+## 上下文
+- 项目类型：{描述}
+- 技术栈：{语言/框架/版本}
+- 数据/代码结构：{关键信息}
+
+## 要求
+1. {约束1}
+2. {约束2}
+3. {约束3}
+
+## 参考示例
+{一个好的输出示例}
+
+## 输出格式
+{结构要求}</code></pre>
+</div>
+
+<div class="card" style="background:rgba(88,166,255,.05);border-color:rgba(88,166,255,.2)">
+  <h3>🧠 记忆口诀</h3>
+  <p style="font-size:1.2em;text-align:center;letter-spacing:2px">
+    <strong style="color:var(--accent)">R</strong>ole &nbsp;
+    <strong style="color:var(--green)">C</strong>ontext &nbsp;
+    <strong style="color:var(--orange)">C</strong>onstraint &nbsp;
+    <strong style="color:var(--purple)">E</strong>xample &nbsp;
+    <strong style="color:var(--pink)">S</strong>chema
+  </p>
+  <p style="text-align:center;color:var(--muted);margin-top:8px">Role → Context → Constraint → Example → Schema</p>
+  <p style="text-align:center;color:var(--muted)">"Ricky's CES" — 里克的质量检验</p>
+</div>
+
+</div><!-- /tab-guide -->
+
+<!-- ═══════ Tab 2: Examples ═══════ -->
+<div id="tab-examples" class="tab-content">
+
+<h2 style="margin-bottom:24px">🔬 「帮我写一个SQL」—— 4版进化</h2>
+
+<div class="ver-grid">
+  <div class="ver-card v1">
+    <div class="ver-num">V1 · 裸提示词</div>
+    <p style="font-size:.85em;margin-bottom:8px"><strong>Prompt：</strong>"帮我写一个SQL"</p>
+    <div class="tags"><span class="tag">无要素</span></div>
+    <p style="font-size:.85em;margin-top:12px;color:var(--muted)">LLM 完全在猜。输出 = 追问需求 + 无意义的通用 SELECT。不可用。</p>
+    <p style="margin-top:8px"><span class="cross">✗</span> 用真实表名<br><span class="cross">✗</span> SQL 可直接运行<br><span class="cross">✗</span> 有索引建议<br><span class="cross">✗</span> 输出结构固定</p>
+  </div>
+
+  <div class="ver-card v2">
+    <div class="ver-num">V2 · +Role</div>
+    <p style="font-size:.85em;margin-bottom:8px"><strong>+</strong> "你是资深数据仓库工程师，精通SQL"</p>
+    <div class="tags"><span class="tag">Role</span></div>
+    <p style="font-size:.85em;margin-top:12px;color:var(--muted)">给出数据仓库风格 SQL（CTE + 维度表），但表名是猜的。</p>
+    <p style="margin-top:8px"><span class="cross">✗</span> 用真实表名<br><span class="cross">✗</span> SQL 可直接运行<br><span class="cross">✗</span> 有索引建议<br><span class="cross">✗</span> 输出结构固定</p>
+  </div>
+
+  <div class="ver-card v3">
+    <div class="ver-num">V3 · +Context+Constraint</div>
+    <p style="font-size:.85em;margin-bottom:8px"><strong>+</strong> "MySQL 8.0，表 orders_dw，字段..."</p>
+    <div class="tags"><span class="tag">Role</span><span class="tag">Context</span><span class="tag">Constraint</span></div>
+    <p style="font-size:.85em;margin-top:12px;color:var(--muted)">质变！真实表名 + 索引建议 + 性能解释。基本可用。</p>
+    <p style="margin-top:8px"><span class="check">✓</span> 用真实表名<br><span class="check">✓</span> SQL 可直接运行<br><span class="check">✓</span> 有索引建议<br><span class="cross">✗</span> 输出结构固定</p>
+  </div>
+
+  <div class="ver-card v4">
+    <div class="ver-num">V4 · +Example+Schema</div>
+    <p style="font-size:.85em;margin-bottom:8px"><strong>+</strong> 参考示例 + 输出格式要求</p>
+    <div class="tags"><span class="tag">Role</span><span class="tag">Context</span><span class="tag">Constraint</span><span class="tag">Example</span><span class="tag">Schema</span></div>
+    <p style="font-size:.85em;margin-top:12px;color:var(--muted)">专业级！结构严整、代码注释、逻辑分层。可直接贴生产环境。</p>
+    <p style="margin-top:8px"><span class="check">✓</span> SQL 可直接运行<br><span class="check">✓</span> 索引建议<br><span class="check">✓</span> 输出结构固定<br><span class="check">✓</span> 代码有注释<br><span class="check">✓</span> 生产就绪</p>
+  </div>
+</div>
+
+<div class="card">
+  <h3>V1 输出：裸提示词</h3>
+  <pre><code>你提供的需求太简略...需要补充：
+1. 要执行什么操作？
+2. 涉及哪些表？
+3. 具体的业务逻辑是什么？
+这里给你一个通用示例：
+SELECT id, username FROM users WHERE age > 18;</code></pre>
+  <p style="color:var(--red);margin-top:8px">诊断：LLM 完全不知道你要什么。不可用。</p>
+</div>
+
+<div class="card">
+  <h3>V3 输出：+Role +Context +Constraint（质变）</h3>
+  <pre><code>SELECT customer_id, SUM(amount) AS total_amount
+FROM orders_dw
+WHERE order_date >= CURDATE() - INTERVAL 90 DAY
+GROUP BY customer_id
+ORDER BY total_amount DESC;
+
+索引建议：(order_date, customer_id, amount) 复合索引
+原因：索引第一列 order_date 快速定位，第二列完成分组，
+      第三列覆盖查询避免回表。</code></pre>
+  <p style="color:var(--green);margin-top:8px">用了真实表名和字段！有索引建议！可直接使用！</p>
+</div>
+
+<div class="card">
+  <h3>V4 输出：+Example +Schema（生产级）</h3>
+  <pre><code>### 需求理解
+统计最近一年每月已完成订单销售额Top 10
+
+### SQL
+SELECT month, total_amount, rnk FROM (
+    SELECT DATE_FORMAT(order_date, '%Y-%m') AS month,
+           SUM(amount) AS total_amount,
+           ROW_NUMBER() OVER (ORDER BY SUM(amount) DESC) AS rnk
+    FROM orders_dw
+    WHERE order_date >= DATE_SUB(CURRENT_DATE, INTERVAL 1 YEAR)
+      AND status = 'completed'
+    GROUP BY DATE_FORMAT(order_date, '%Y-%m')
+) t WHERE rnk <= 10 ORDER BY month;
+
+### 思路说明
+1. 筛选最近一年已完成订单
+2. 按年月分组汇总销售额
+3. 窗口函数排名取前10
+4. 外层按月份排序输出
+
+### 索引建议
+(order_date, status) 复合索引</code></pre>
+  <p style="color:var(--accent);margin-top:8px">结构严整、注释清晰、逻辑分层。生产就绪。</p>
+</div>
+
+<div class="card">
+  <h3>📊 V1→V4 效果对比表</h3>
+  <table>
+    <tr><th>维度</th><th>V1</th><th>V2</th><th>V3</th><th>V4</th></tr>
+    <tr><td>用真实表名</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
+    <tr><td>SQL 可直接运行</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
+    <tr><td>有索引建议</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
+    <tr><td>逻辑分层解释</td><td class="cross">✗</td><td class="cross">✗</td><td>简要</td><td class="check">✓ 清晰</td></tr>
+    <tr><td>输出结构固定</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td></tr>
+    <tr><td>代码有注释</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td></tr>
+    <tr><td>风格一致性</td><td class="cross">✗</td><td class="cross">✗</td><td>一般</td><td class="check">✓ 优秀</td></tr>
+    <tr><td>生产就绪</td><td class="cross">✗</td><td class="cross">✗</td><td>基本</td><td class="check">✓ 完全</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h3>🎯 核心发现</h3>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:12px">
+    <div>
+      <strong style="color:var(--accent)">Role</strong>
+      <p style="font-size:.9em">决定输出方向。没角色 = 通用回答。<br>有角色 = 领域专属。</p>
+    </div>
+    <div>
+      <strong style="color:var(--green)">Context + Constraint</strong>
+      <p style="font-size:.9em">质变的关键组合！真实表名 + 明确约束 = 可直接使用的输出。</p>
+    </div>
+    <div>
+      <strong style="color:var(--purple)">Example + Schema</strong>
+      <p style="font-size:.9em">从"可用"到"专业"的最后一步。控制风格一致性和结构稳定性。</p>
+    </div>
+  </div>
+</div>
+
+</div><!-- /tab-examples -->
+
+<!-- ═══════ Tab 3: Exercises ═══════ -->
+<div id="tab-exercises" class="tab-content">
+
+<h2 style="margin-bottom:24px">✏️ 10 道渐进式练习题</h2>
+<p style="color:var(--muted);margin-bottom:32px">覆盖 Role、Context、Constraint、Example、Output Schema 的完整训练。<br>建议用 llm_playground.py 的实验4来完成。</p>
+
+<div class="exercise">
+  <h4>练习 1：Role 的威力 —— 同一个问题，四个角色</h4>
+  <div class="meta"><span>🎭 Role</span><span>难度：★</span></div>
+  <p>用 4 种角色分别问"什么是数据库死锁"，比较输出差异。角色：无角色 / 幼儿园老师 / 资深 DBA / 产品经理。</p>
+</div>
+
+<div class="exercise">
+  <h4>练习 2：Context 的精确度 —— 从模糊到清晰</h4>
+  <div class="meta"><span>📋 Context</span><span>难度：★★</span></div>
+  <p>3 个版本逐步添加 Context，写一个查询报表 SQL。从"无上下文"到"完整表结构+业务需求"。</p>
+</div>
+
+<div class="exercise">
+  <h4>练习 3：Constraint 的取舍 —— 当需求冲突时</h4>
+  <div class="meta"><span>🚫 Constraint</span><span>难度：★★★</span></div>
+  <p>设计冲突约束："逐行详细的 Code Review"+"总输出不超过200字"。测试 3 种写法，观察 LLM 如何处理冲突。</p>
+</div>
+
+<div class="exercise">
+  <h4>练习 4：Example 的魔力 —— 1个例子 vs 0个例子</h4>
+  <div class="meta"><span>📝 Example</span><span>难度：★★</span></div>
+  <p>让 LLM 生成 Git Commit Message。对比 Zero-shot / One-shot / Three-shot 的格式一致性和动词选择。</p>
+</div>
+
+<div class="exercise">
+  <h4>练习 5：Output Schema —— 自由格式 vs 结构化</h4>
+  <div class="meta"><span>📐 Schema</span><span>难度：★★</span></div>
+  <p>从需求描述提取"数据仓库表设计"。对比无 Schema / JSON Schema / Markdown 表格 三种输出。</p>
+</div>
+
+<div class="exercise">
+  <h4>练习 6：诊断差 Prompt —— 找出问题并优化</h4>
+  <div class="meta"><span>🔍 诊断</span><span>难度：★★★</span></div>
+  <p>给定一个充满问题的 Prompt，逐一诊断并改写。训练"看出哪里不对"的能力。</p>
+</div>
+
+<div class="exercise">
+  <h4>练习 7：渐进式 Prompt 设计 —— 一个需求的 4 次迭代</h4>
+  <div class="meta"><span>🏗️ 综合</span><span>难度：★★★★</span></div>
+  <p>需求：用 Python 从 Hive 导出数据到 CSV。设计 V1→V4 四个 Prompt，逐步加要素，记录每版输出变化。</p>
+</div>
+
+<div class="exercise">
+  <h4>练习 8：跨领域 Prompt —— SQL 到 Python 到文档</h4>
+  <div class="meta"><span>🔄 迁移</span><span>难度：★★★</span></div>
+  <p>同一需求场景（计算复购率），分别设计 SQL / Python / 文档 三个 Prompt。共用 Context，定制 Role/Constraint。</p>
+</div>
+
+<div class="exercise">
+  <h4>练习 9：复杂约束 —— 数据安全场景</h4>
+  <div class="meta"><span>🔒 安全</span><span>难度：★★★★</span></div>
+  <p>设计数据库迁移 Prompt。5 条安全约束：回滚脚本、不锁表超 5 秒、幂等检查、NOT NULL、备份命令。</p>
+</div>
+
+<div class="exercise">
+  <h4>练习 10：组合实战 —— 设计「DWH 助手」System Prompt</h4>
+  <div class="meta"><span>🏆 终极</span><span>难度：★★★★★</span></div>
+  <p>综合运用五要素设计生产级 System Prompt。测试：建表 / 慢查询诊断 / 危险操作拒绝。自评五维标准。</p>
+</div>
+
+<h3 style="margin-top:32px">✅ 完成清单</h3>
+<ul class="checklist">
+  <li><input type="checkbox" id="e1"><label for="e1">1. Role 的威力 —— 四种角色对比</label></li>
+  <li><input type="checkbox" id="e2"><label for="e2">2. Context 精确度 —— 模糊到清晰三版</label></li>
+  <li><input type="checkbox" id="e3"><label for="e3">3. Constraint 取舍 —— 冲突约束测试</label></li>
+  <li><input type="checkbox" id="e4"><label for="e4">4. Example 魔力 —— 0/1/3-shot 对比</label></li>
+  <li><input type="checkbox" id="e5"><label for="e5">5. Output Schema —— 自由 vs 结构化</label></li>
+  <li><input type="checkbox" id="e6"><label for="e6">6. 诊断差 Prompt —— 找出问题并改写</label></li>
+  <li><input type="checkbox" id="e7"><label for="e7">7. 渐进式设计 —— Hive→CSV 四版迭代</label></li>
+  <li><input type="checkbox" id="e8"><label for="e8">8. 跨领域 Prompt —— SQL/Python/文档</label></li>
+  <li><input type="checkbox" id="e9"><label for="e9">9. 复杂约束 —— 安全迁移脚本</label></li>
+  <li><input type="checkbox" id="e10"><label for="e10">10. 组合实战 —— DWH 助手 System Prompt</label></li>
+</ul>
+
+</div><!-- /tab-exercises -->
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// Save checkbox state
+document.querySelectorAll('.checklist input[type=checkbox]').forEach(cb => {
+  cb.addEventListener('change', () => {
+    const checked = [];
+    document.querySelectorAll('.checklist input[type=checkbox]').forEach((c, i) => {
+      if (c.checked) checked.push(i);
+    });
+    localStorage.setItem('prompt-exercises-done', JSON.stringify(checked));
+  });
+  const key = 'prompt-exercises-done-' + cb.id;
+  if (localStorage.getItem(key) === 'true') cb.checked = true;
+});
+
+// Restore checkbox state
+document.querySelectorAll('.checklist input[type=checkbox]').forEach(cb => {
+  const key = 'prompt-exercises-done-' + cb.id;
+  if (localStorage.getItem(key) === 'true') cb.checked = true;
+  cb.addEventListener('change', () => localStorage.setItem(key, cb.checked));
+});
+</script>
+
+</body>
+</html>
