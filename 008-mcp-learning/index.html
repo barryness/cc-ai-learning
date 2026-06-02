@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MCP 学习 —— 从 Tool Calling 到标准化协议</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a;
+    --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --orange: #d2991d; --red: #f85149;
+    --purple: #a371f7; --cyan: #39c5cf; --pink: #db61a2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7;
+  }
+  .hero {
+    background: linear-gradient(135deg, #1a1d27 0%, #1f2937 50%, #111827 100%);
+    border-bottom: 1px solid var(--border); padding: 60px 24px 48px; text-align: center;
+  }
+  .hero h1 { font-size: 2.6em; background: linear-gradient(135deg, #db61a2, var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+  .hero p { color: var(--muted); font-size: 1.1em; max-width: 700px; margin: 0 auto; }
+
+  .tabs {
+    display: flex; gap: 2px; background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 0 24px; position: sticky; top: 0; z-index: 10; overflow-x: auto;
+  }
+  .tab-btn {
+    background: none; border: none; color: var(--muted); padding: 14px 16px;
+    font-size: .89em; cursor: pointer; border-bottom: 2px solid transparent;
+    transition: .2s; font-family: inherit; white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--pink); border-bottom-color: var(--pink); }
+  .tab-content { display: none; padding: 40px 24px; max-width: 1000px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 28px; margin-bottom: 24px;
+  }
+  .card h3 { font-size: 1.2em; margin-bottom: 12px; color: #e6edf3; }
+  .card h4 { font-size: 1.05em; margin: 16px 0 8px; color: #d0d7de; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 768px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+  .callout {
+    padding: 14px 18px; border-radius: 8px; margin: 16px 0; font-size: .93em;
+  }
+  .callout-info { background: rgba(88,166,255,.1); border-left: 3px solid var(--accent); }
+  .callout-warn { background: rgba(210,153,29,.1); border-left: 3px solid var(--orange); }
+  .callout-tip { background: rgba(52,211,153,.1); border-left: 3px solid #34d399; }
+  .callout-danger { background: rgba(248,81,73,.1); border-left: 3px solid var(--red); }
+
+  pre {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px; overflow-x: auto; font-size: .87em; line-height: 1.6;
+  }
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: .88em;
+  }
+  :not(pre) > code {
+    background: rgba(110,118,129,.15); padding: 2px 6px; border-radius: 4px;
+  }
+
+  table {
+    width: 100%; border-collapse: collapse; margin: 16px 0; font-size: .91em;
+  }
+  th, td {
+    text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border);
+  }
+  th { color: var(--muted); font-weight: 600; font-size: .85em; text-transform: uppercase; }
+  tr:hover { background: rgba(255,255,255,.02); }
+
+  .tag {
+    display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: .8em; font-weight: 500;
+  }
+  .tag-green { background: rgba(63,185,80,.15); color: var(--green); }
+  .tag-blue { background: rgba(88,166,255,.15); color: var(--accent); }
+  .tag-purple { background: rgba(163,113,247,.15); color: var(--purple); }
+  .tag-orange { background: rgba(210,153,29,.15); color: var(--orange); }
+  .tag-red { background: rgba(248,81,73,.15); color: var(--red); }
+  .tag-cyan { background: rgba(57,197,207,.15); color: var(--cyan); }
+  .tag-pink { background: rgba(219,97,162,.15); color: var(--pink); }
+
+  .pipeline {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    flex-wrap: wrap; margin: 24px 0;
+  }
+  .pipe-step {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; text-align: center; min-width: 90px; transition: .3s;
+  }
+  .pipe-step:hover { border-color: var(--pink); transform: translateY(-2px); }
+  .pipe-step .icon { font-size: 1.5em; margin-bottom: 4px; }
+  .pipe-step .label { font-weight: 600; font-size: .9em; }
+  .pipe-step .desc { color: var(--muted); font-size: .78em; margin-top: 4px; }
+  .pipe-arrow { color: var(--pink); font-size: 1.4em; font-weight: bold; }
+
+  .code-compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0;
+  }
+  @media (max-width: 768px) { .code-compare { grid-template-columns: 1fr; } }
+  .code-block {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px; overflow-x: auto;
+  }
+  .code-block.bad { border-left: 3px solid var(--red); }
+  .code-block.good { border-left: 3px solid var(--green); }
+  .code-block .label {
+    font-size: .8em; font-weight: 600; margin-bottom: 8px; display: block;
+  }
+
+  .demo-card {
+    border: 1px solid var(--border); border-radius: 10px; padding: 18px;
+    background: var(--bg); transition: .2s;
+  }
+  .demo-card:hover { border-color: var(--pink); }
+  .demo-card h4 { color: var(--accent); margin-bottom: 6px; font-size: 1em; }
+  .demo-card p { color: var(--muted); font-size: .88em; line-height: 1.6; }
+
+  .flow-horizontal {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 16px 0;
+  }
+
+  .arch-diagram {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    margin: 24px 0; font-size: .85em;
+  }
+  .arch-row {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center;
+  }
+  .arch-box {
+    background: var(--bg); border: 1px solid; border-radius: 10px;
+    padding: 10px 18px; text-align: center; min-width: 80px; font-weight: 600;
+  }
+  .arch-box.host { border-color: var(--accent); color: var(--accent); }
+  .arch-box.client { border-color: var(--cyan); color: var(--cyan); }
+  .arch-box.server { border-color: var(--pink); color: var(--pink); }
+  .arch-box.tool { border-color: var(--purple); color: var(--purple); }
+  .arch-box.green { border-color: var(--green); color: var(--green); }
+  .arch-box.orange { border-color: var(--orange); color: var(--orange); }
+  .arch-arrow { color: var(--muted); font-size: 1.2em; }
+  .arch-label {
+    font-size: .78em; color: var(--muted); text-align: center;
+    margin: 2px 0; font-style: italic;
+  }
+
+  .tool-cards {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0;
+  }
+  @media (max-width: 768px) { .tool-cards { grid-template-columns: 1fr 1fr; } }
+  .tool-card {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px; text-align: center; font-size: .85em;
+  }
+  .tool-card .name { font-weight: 600; color: var(--accent); }
+  .tool-card .cat { font-size: .8em; color: var(--muted); margin: 4px 0; }
+  .tool-card .desc { font-size: .8em; color: var(--text); }
+
+  .concept-icon { font-size: 2em; text-align: center; margin-bottom: 8px; }
+
+  .flow-steps {
+    display: flex; flex-direction: column; gap: 8px; margin: 16px 0; align-items: center;
+  }
+  .flow-step {
+    display: flex; gap: 12px; align-items: center;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 18px; width: 100%; max-width: 600px; font-size: .88em;
+  }
+  .flow-step .num {
+    min-width: 28px; height: 28px; background: var(--pink); color: white;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: .85em;
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>MCP 学习笔记</h1>
+  <p>从 Tool Calling 到标准化协议 —— 构建 LLM 可调用的工具服务，一次定义、所有平台通用</p>
+</div>
+
+<div class="tabs" id="tabBar">
+  <button class="tab-btn active" data-tab="why">为什么需要 MCP</button>
+  <button class="tab-btn" data-tab="architecture">三角色架构</button>
+  <button class="tab-btn" data-tab="capabilities">Tool / Resource / Prompt</button>
+  <button class="tab-btn" data-tab="server-design">Server 设计</button>
+  <button class="tab-btn" data-tab="security">安全设计</button>
+  <button class="tab-btn" data-tab="claude-code">连接 Claude Code</button>
+  <button class="tab-btn" data-tab="compare">MCP vs 其他方案</button>
+</div>
+
+<!-- ═══════════════════════════ Tab 1: 为什么需要 MCP ═══════ -->
+<div class="tab-content active" id="tab-why">
+
+  <div class="card">
+    <h3>你已经会了 Tool Calling</h3>
+    <p style="margin-bottom:16px;">在 LangChain 中，用 <code>@tool</code> 装饰器就能让 LLM 调用函数：</p>
+    <pre><code><span style="color:var(--purple)">@tool</span>
+<span style="color:var(--accent)">def</span> <span style="color:var(--green)">get_weather</span>(city: str) -> str:
+    <span style="color:var(--orange)">"""查询城市天气"""</span>
+    <span style="color:var(--accent)">return</span> <span style="color:var(--green)">f"{city}: 晴, 25°C"</span>
+
+llm_with_tools = llm.bind_tools([get_weather])
+<span style="color:var(--muted)"># LLM 自动判断：北京天气 → 调 get_weather("北京")</span></code></pre>
+  </div>
+
+  <div class="card">
+    <h3>但有一个根本问题：平台绑定</h3>
+    <p style="margin-bottom:12px;">每个 LLM 平台的 Tool Calling 格式都不同。如果你有 10 个工具，想在 3 个平台用——</p>
+    <table>
+      <tr><th>平台</th><th>格式</th><th>维护成本</th></tr>
+      <tr>
+        <td><strong>OpenAI</strong></td>
+        <td><code>tools=[{"type":"function","function":{...}}]</code></td>
+        <td><span class="tag tag-red">写 1 遍</span></td>
+      </tr>
+      <tr>
+        <td><strong>Anthropic</strong></td>
+        <td><code>tools=[{"name":"...","input_schema":{...}}]</code></td>
+        <td><span class="tag tag-red">再写 1 遍</span></td>
+      </tr>
+      <tr>
+        <td><strong>Google Gemini</strong></td>
+        <td><code>tools=[{"functionDeclarations":[{...}]}]</code></td>
+        <td><span class="tag tag-red">再写 1 遍</span></td>
+      </tr>
+    </table>
+    <div class="callout callout-warn">
+      <strong>维护成本 = 工具数 × 平台数。</strong>10 个工具 × 3 个平台 = 30 份定义。而且格式细节各不相同，容易出错。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>MCP 的答案：把工具变成"服务"</h3>
+    <div class="code-compare">
+      <div class="code-block bad">
+        <span class="label" style="color:var(--red);">传统 Tool Calling</span>
+        <div style="text-align:center;padding:12px 0;">
+          <div style="border:1px solid var(--accent);border-radius:8px;padding:10px;margin-bottom:8px;">
+            App ─── LLM ─── Tool₁, Tool₂, Tool₃
+          </div>
+          <div style="color:var(--muted);font-size:.85em;">工具和 LLM 绑定在一起<br>换平台 = 重新定义</div>
+        </div>
+      </div>
+      <div class="code-block good">
+        <span class="label" style="color:var(--green);">MCP</span>
+        <div style="text-align:center;padding:12px 0;">
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;">
+            <div style="border:1px solid var(--accent);border-radius:8px;padding:8px;">LLM</div>
+            <span style="color:var(--pink);">← 标准协议 →</span>
+            <div style="border:1px solid var(--pink);border-radius:8px;padding:8px;">MCP Server<br><small>Tool₁,₂,₃</small></div>
+          </div>
+          <div style="color:var(--muted);font-size:.85em;">工具变成独立"服务"<br>一次定义，所有平台通用</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <strong>类比：</strong>MCP = LLM 世界的 "USB-C 接口"。USB-C 之前每种设备有自己的接口，USB-C 之后一个接口通吃。
+      MCP 对工具调用做了一样的事——统一的协议，任何 LLM 都能发现和调用任何工具。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>MCP 解决的核心问题</h3>
+    <table>
+      <tr><th>问题</th><th>MCP 之前</th><th>MCP 之后</th></tr>
+      <tr><td><strong>工具定义</strong></td><td>每个平台一种格式</td><td><span class="tag tag-green">一次定义，所有平台通用</span></td></tr>
+      <tr><td><strong>工具部署</strong></td><td>嵌入在应用代码里</td><td><span class="tag tag-green">独立进程，即插即用</span></td></tr>
+      <tr><td><strong>工具发现</strong></td><td>硬编码在代码里</td><td><span class="tag tag-green">Client 自动发现 Server 提供的工具</span></td></tr>
+      <tr><td><strong>工具复用</strong></td><td>每个项目重新写</td><td><span class="tag tag-green">一个 Server 多个项目共用</span></td></tr>
+      <tr><td><strong>安全隔离</strong></td><td>和 LLM 同进程</td><td><span class="tag tag-green">独立进程，权限隔离</span></td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ Tab 2: 三角色架构 ═══════ -->
+<div class="tab-content" id="tab-architecture">
+
+  <div class="card">
+    <h3>MCP 三角色架构</h3>
+    <div class="arch-diagram">
+      <div class="arch-row">
+        <div class="arch-box host" style="min-width:260px;">
+          <strong>MCP Host</strong>
+          <br><small>AI 应用（Claude Desktop、Cursor 等）</small>
+        </div>
+      </div>
+      <div class="arch-arrow">│ 包含</div>
+      <div class="arch-row">
+        <div class="arch-box client" style="min-width:300px;padding:14px 18px;">
+          <strong>MCP Client</strong>
+          <br><small>协议客户端：连接 Server · 管理 Tool 列表 · 转发调用</small>
+        </div>
+      </div>
+      <div class="arch-arrow">│ JSON-RPC over stdio / SSE</div>
+      <div class="arch-row">
+        <div class="arch-box server" style="min-width:300px;padding:14px 18px;">
+          <strong>MCP Server</strong>
+          <br><small>工具提供方：声明 Tool/Resource/Prompt · 执行调用 · 返回结果</small>
+        </div>
+      </div>
+    </div>
+
+    <table style="margin-top:16px;">
+      <tr><th>角色</th><th>做什么</th><th>举例</th></tr>
+      <tr>
+        <td><span class="tag tag-blue">MCP Host</span></td>
+        <td>运行 LLM 的应用</td>
+        <td>Claude Desktop、Cursor、VS Code Copilot</td>
+      </tr>
+      <tr>
+        <td><span class="tag tag-cyan">MCP Client</span></td>
+        <td>Host 内部的协议客户端</td>
+        <td>连接 Server、管理 Tool 列表、转发调用</td>
+      </tr>
+      <tr>
+        <td><span class="tag tag-pink">MCP Server</span></td>
+        <td>提供具体功能的服务</td>
+        <td>天气查询、文件操作、数据库访问、API 网关</td>
+      </tr>
+    </table>
+
+    <div class="callout callout-info">
+      <strong>关键理解：</strong>MCP Host 启动 MCP Server 作为<strong>子进程</strong>，通过 stdin/stdout 管道用 JSON-RPC 2.0 协议通信。
+      这带来了天然的进程级隔离——Server 崩溃不影响 Host。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>一次完整的 Tool Calling 流程</h3>
+    <div class="flow-steps">
+      <div class="flow-step">
+        <div class="num">1</div>
+        <div><strong>初始化</strong>：Client 连接 Server，交换协议版本和能力</div>
+      </div>
+      <div class="flow-step">
+        <div class="num">2</div>
+        <div><strong>发现工具</strong>：Server 返回 Tool 列表（name + description + inputSchema）</div>
+      </div>
+      <div class="flow-step">
+        <div class="num">3</div>
+        <div><strong>LLM 决策</strong>：LLM 根据用户意图选择 Tool，按 Schema 生成参数</div>
+      </div>
+      <div class="flow-step">
+        <div class="num">4</div>
+        <div><strong>调用执行</strong>：Client 发送 (tool_name, arguments)，Server 执行返回结果</div>
+      </div>
+      <div class="flow-step">
+        <div class="num">5</div>
+        <div><strong>结果整合</strong>：LLM 把工具返回结果融入最终回复</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>两种传输模式</h3>
+    <div class="grid-2">
+      <div class="demo-card" style="border-top:3px solid var(--pink);">
+        <h4>stdio（本地）</h4>
+        <p style="margin-top:8px;">
+          通过 stdin/stdout 管道通信<br>
+          Server 作为子进程运行<br>
+          零网络配置，进程级隔离<br>
+          <strong>适合：本地工具</strong>（文件系统、数据库、CLI）
+        </p>
+      </div>
+      <div class="demo-card" style="border-top:3px solid var(--cyan);">
+        <h4>SSE（远程）</h4>
+        <p style="margin-top:8px;">
+          通过 HTTP Server-Sent Events 通信<br>
+          Server 作为独立服务运行<br>
+          支持跨机器访问<br>
+          <strong>适合：远程工具</strong>（API 网关、云服务）
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ Tab 3: Tool / Resource / Prompt ═══════ -->
+<div class="tab-content" id="tab-capabilities">
+
+  <div class="card">
+    <h3>Server 提供三种能力</h3>
+    <div class="grid-3" style="margin-bottom:16px;">
+      <div class="demo-card" style="border-top:3px solid var(--purple);text-align:center;">
+        <div class="concept-icon">🔧</div>
+        <h4>Tool</h4>
+        <p><strong>执行操作</strong></p>
+        <p style="color:var(--muted);">让 LLM "做"事情<br>查天气、写文件、发邮件、调 API</p>
+        <span class="tag tag-purple">有副作用</span>
+      </div>
+      <div class="demo-card" style="border-top:3px solid var(--accent);text-align:center;">
+        <div class="concept-icon">📖</div>
+        <h4>Resource</h4>
+        <p><strong>读取数据</strong></p>
+        <p style="color:var(--muted);">让 LLM "看"数据<br>读配置、数据库 Schema、日志文件</p>
+        <span class="tag tag-blue">只读</span>
+      </div>
+      <div class="demo-card" style="border-top:3px solid var(--green);text-align:center;">
+        <div class="concept-icon">💬</div>
+        <h4>Prompt</h4>
+        <p><strong>提示词模板</strong></p>
+        <p style="color:var(--muted);">让 LLM 快速获取<br>周报模板、代码审查模板等</p>
+        <span class="tag tag-green">模板</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Tool：最核心的能力</h3>
+    <p style="margin-bottom:12px;">每个 Tool 有三个要素，description 是最关键的——LLM 靠它决定"什么时候用"：</p>
+    <pre><code><span style="color:var(--purple)">Tool</span>(
+    name=<span style="color:var(--orange)">"get_weather"</span>,              <span style="color:var(--muted)"># 1. 名称：LLM 用来标识</span>
+    description=<span style="color:var(--orange)">"获取指定城市的天气信息"</span>,  <span style="color:var(--muted)"># 2. 描述：LLM 用来理解"什么时候用"</span>
+    inputSchema={                       <span style="color:var(--muted)"># 3. 参数 Schema：LLM 用来生成"正确的参数"</span>
+        <span style="color:var(--orange)">"type"</span>: <span style="color:var(--orange)">"object"</span>,
+        <span style="color:var(--orange)">"properties"</span>: {
+            <span style="color:var(--orange)">"city"</span>: {<span style="color:var(--orange)">"type"</span>: <span style="color:var(--orange)">"string"</span>, <span style="color:var(--orange)">"description"</span>: <span style="color:var(--orange)">"城市名称"</span>}
+        },
+        <span style="color:var(--orange)">"required"</span>: [<span style="color:var(--orange)">"city"</span>],
+    },
+)</code></pre>
+
+    <div class="callout callout-warn">
+      <strong>三要素缺一不可：</strong>name 不对 → LLM 找不到工具。description 不好 → LLM 不知道该不该用。inputSchema 不准 → LLM 生成错误参数 → 调用失败。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Tool vs Resource：什么时候用哪个</h3>
+    <table>
+      <tr><th></th><th>Tool</th><th>Resource</th></tr>
+      <tr><td><strong>语义</strong></td><td><span class="tag tag-purple">做</span>事情（执行操作）</td><td><span class="tag tag-blue">读</span>数据（获取信息）</td></tr>
+      <tr><td><strong>副作用</strong></td><td>有（写文件、发邮件）</td><td>无（只读）</td></tr>
+      <tr><td><strong>标识</strong></td><td>通过 name 标识</td><td>通过 URI 标识</td></tr>
+      <tr><td><strong>参数</strong></td><td>每次调用时传入</td><td>通过 URI 标识资源</td></tr>
+      <tr><td><strong>示例</strong></td><td><code>write_file</code>、<code>send_email</code></td><td><code>file:///readme.md</code>、<code>db:///schema</code></td></tr>
+    </table>
+    <div class="callout callout-tip">
+      <strong>简单判断：</strong>如果功能是"获取 X"且无副作用 → Resource。如果功能是"做 X"且有副作用 → Tool。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Prompt：预定义的提示词模板</h3>
+    <pre><code><span style="color:var(--purple)">Prompt</span>(
+    name=<span style="color:var(--orange)">"write_weekly_report"</span>,
+    description=<span style="color:var(--orange)">"生成周报的提示词模板"</span>,
+    arguments=[
+        {<span style="color:var(--orange)">"name"</span>: <span style="color:var(--orange)">"project"</span>, <span style="color:var(--orange)">"description"</span>: <span style="color:var(--orange)">"项目名称"</span>, <span style="color:var(--orange)">"required"</span>: True},
+    ],
+)
+
+<span style="color:var(--muted)"># LLM 收到 Prompt 模板后，按照专业结构生成内容</span>
+<span style="color:var(--muted)"># 比用户手写"帮我写周报"质量更高</span></code></pre>
+
+    <div class="callout callout-info">
+      <strong>三种能力的使用频率：</strong>Tool（90%） > Resource（8%） > Prompt（2%）。绝大多数 MCP Server 只提供 Tool。Resource 和 Prompt 是锦上添花。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ Tab 4: Server 设计 ═══════ -->
+<div class="tab-content" id="tab-server-design">
+
+  <div class="card">
+    <h3>我们的 MCP Server：文件系统 + SQLite</h3>
+    <p style="margin-bottom:16px;">一个 Server 提供两组共 8 个工具，LLM 根据用户意图自动选择：</p>
+
+    <div class="tool-cards">
+      <div class="tool-card">
+        <div class="name">list_directory</div>
+        <div class="cat">📂 文件系统</div>
+        <div class="desc">列出目录内容</div>
+      </div>
+      <div class="tool-card">
+        <div class="name">read_file</div>
+        <div class="cat">📂 文件系统</div>
+        <div class="desc">读取文件（多编码）</div>
+      </div>
+      <div class="tool-card">
+        <div class="name">search_files</div>
+        <div class="cat">📂 文件系统</div>
+        <div class="desc">通配符搜索</div>
+      </div>
+      <div class="tool-card">
+        <div class="name">write_file</div>
+        <div class="cat">📂 文件系统</div>
+        <div class="desc">写入文件</div>
+      </div>
+      <div class="tool-card">
+        <div class="name">db_list_tables</div>
+        <div class="cat">🗄️ SQLite</div>
+        <div class="desc">列出所有表</div>
+      </div>
+      <div class="tool-card">
+        <div class="name">db_describe_table</div>
+        <div class="cat">🗄️ SQLite</div>
+        <div class="desc">查看表结构</div>
+      </div>
+      <div class="tool-card">
+        <div class="name">db_query</div>
+        <div class="cat">🗄️ SQLite</div>
+        <div class="desc">SELECT 查询（只读）</div>
+      </div>
+      <div class="tool-card">
+        <div class="name">db_export_table</div>
+        <div class="cat">🗄️ SQLite</div>
+        <div class="desc">导出表数据</div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <strong>设计理念：</strong>一个 Server 可以提供多组不相关的工具。"服务聚合"是 MCP 的常见模式——文件系统和数据库放在同一个 Server，LLM 自动判断用户想操作文件还是查询数据库。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Server 的最小结构</h3>
+    <div class="code-compare">
+      <div class="code-block good" style="grid-column:1/-1;">
+        <span class="label" style="color:var(--green);">MCP Server 的核心骨架（4 步）</span>
+<pre><code><span style="color:var(--accent)">from</span> mcp.server <span style="color:var(--accent)">import</span> Server
+<span style="color:var(--accent)">from</span> mcp.types <span style="color:var(--accent)">import</span> Tool, TextContent
+<span style="color:var(--accent)">from</span> mcp.server.stdio <span style="color:var(--accent)">import</span> stdio_server
+
+<span style="color:var(--muted)"># 1. 创建 Server</span>
+server = Server(<span style="color:var(--orange)">"my-server"</span>)
+
+<span style="color:var(--muted)"># 2. 声明 Tool 列表（LLM 的"工具菜单"）</span>
+<span style="color:var(--purple)">@server.list_tools()</span>
+<span style="color:var(--accent)">async def</span> <span style="color:var(--green)">list_tools</span>() -> list[Tool]:
+    <span style="color:var(--accent)">return</span> [Tool(name=..., description=..., inputSchema=...)]
+
+<span style="color:var(--muted)"># 3. 实现 Tool 调用（执行逻辑）</span>
+<span style="color:var(--purple)">@server.call_tool()</span>
+<span style="color:var(--accent)">async def</span> <span style="color:var(--green)">call_tool</span>(name: str, arguments: dict) -> list[TextContent]:
+    <span style="color:var(--accent)">if</span> name == <span style="color:var(--orange)">"my_tool"</span>:
+        <span style="color:var(--accent)">return</span> [TextContent(type=<span style="color:var(--orange)">"text"</span>, text=result)]
+
+<span style="color:var(--muted)"># 4. 启动 Server（监听 stdin/stdout）</span>
+<span style="color:var(--accent)">async with</span> stdio_server() <span style="color:var(--accent)">as</span> (read_stream, write_stream):
+    <span style="color:var(--accent)">await</span> server.run(read_stream, write_stream, ...)</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>两个层次的工具设计</h3>
+    <div class="grid-2">
+      <div class="demo-card" style="border-top:3px solid var(--accent);">
+        <h4>层次 1：文件系统（基础）</h4>
+        <p style="margin-top:8px;">
+          LLM 通过文件系统工具操作本地文件<br>
+          → 探索目录结构 <code>list_directory</code><br>
+          → 读取文件内容 <code>read_file</code><br>
+          → 搜索特定文件 <code>search_files</code><br>
+          → 创建/修改文件 <code>write_file</code>
+        </p>
+      </div>
+      <div class="demo-card" style="border-top:3px solid var(--purple);">
+        <h4>层次 2：SQLite 数据库（扩展）</h4>
+        <p style="margin-top:8px;">
+          LLM 通过数据库工具查询结构化数据<br>
+          → 了解有哪些表 <code>db_list_tables</code><br>
+          → 理解表结构 <code>db_describe_table</code><br>
+          → 执行分析查询 <code>db_query</code><br>
+          → 导出完整数据 <code>db_export_table</code>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ Tab 5: 安全设计 ═══════ -->
+<div class="tab-content" id="tab-security">
+
+  <div class="card">
+    <h3>安全是 MCP Server 的第一要务</h3>
+    <div class="callout callout-danger">
+      <strong>LLM 是不可信的调用方。</strong>它可能被用户诱导，尝试读取系统文件、删除数据、执行危险 SQL。<br>
+      MCP Server 必须自己做好防护——永远不要信任 LLM 传来的参数。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>防护 1：路径穿越攻击防御</h3>
+    <p style="margin-bottom:12px;">用户可能对 LLM 说"读取 /etc/passwd"，LLM 可能传入 <code>../../../etc/passwd</code>：</p>
+    <div class="code-compare">
+      <div class="code-block bad">
+        <span class="label" style="color:var(--red);">不安全的实现</span>
+<pre><code><span style="color:var(--accent">def</span> <span style="color:var(--green)">read_file</span>(user_path: str):
+    <span style="color:var(--muted)"># 危险！直接拼接用户路径</span>
+    full = Path(<span style="color:var(--orange)">"/workspace"</span>) / user_path
+    <span style="color:var(--accent)">return</span> full.read_text()
+
+<span style="color:var(--muted)"># user_path = "../../../etc/passwd"</span>
+<span style="color:var(--muted)"># → /etc/passwd ← 系统文件泄露！</span></code></pre>
+      </div>
+      <div class="code-block good">
+        <span class="label" style="color:var(--green);">安全的实现：safe_path()</span>
+<pre><code><span style="color:var(--accent)">def</span> <span style="color:var(--green)">safe_path</span>(user_path: str) -> Path:
+    full = Path(allowed_root) / user_path
+    resolved = full.resolve()  <span style="color:var(--muted)"># 展开 ../ 和符号链接</span>
+
+    <span style="color:var(--accent)">if not</span> str(resolved).startswith(str(allowed_root)):
+        <span style="color:var(--accent)">raise</span> PermissionError(<span style="color:var(--orange)">"路径越界！"</span>)
+
+    <span style="color:var(--accent)">return</span> resolved
+
+<span style="color:var(--muted)"># user_path = "../../../etc/passwd"</span>
+<span style="color:var(--muted)"># → PermissionError: 路径穿越检测！</span></code></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>防护 2：SQL 注入和危险操作拦截</h3>
+    <pre><code><span style="color:var(--accent)">def</span> <span style="color:var(--green)">_handle_db_query</span>(args: dict):
+    sql = args[<span style="color:var(--orange)">"sql"</span>].strip()
+
+    <span style="color:var(--muted)"># 检查 1：只允许 SELECT</span>
+    <span style="color:var(--accent)">if not</span> sql.upper().startswith(<span style="color:var(--orange)">"SELECT"</span>):
+        <span style="color:var(--accent)">return</span> [TextContent(text=<span style="color:var(--orange)">"⛔ 只允许 SELECT 查询"</span>)]
+
+    <span style="color:var(--muted)"># 检查 2：禁止危险关键词</span>
+    dangerous = [<span style="color:var(--orange)">"DROP"</span>, <span style="color:var(--orange)">"DELETE"</span>, <span style="color:var(--orange)">"INSERT"</span>, <span style="color:var(--orange)">"UPDATE"</span>, <span style="color:var(--orange)">"ALTER"</span>]
+    <span style="color:var(--accent)">for</span> kw <span style="color:var(--accent)">in</span> dangerous:
+        <span style="color:var(--accent)">if</span> kw <span style="color:var(--accent)">in</span> sql.upper():
+            <span style="color:var(--accent)">return</span> [TextContent(text=<span style="color:var(--green)">f"⛔ 禁止 {kw}"</span>)]
+
+    <span style="color:var(--muted)"># 检查 3：只读连接（即使绕过前两步，数据库也不允许写）</span>
+    conn = sqlite3.connect(<span style="color:var(--green)">f"file:{DB_PATH}?mode=ro"</span>, uri=True)</code></pre>
+
+    <div class="callout callout-tip">
+      <strong>纵深防御：</strong>三层防护——代码白名单 + 关键词拦截 + 数据库只读连接。即使前两层被绕过，数据库层也会阻止写操作。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>安全设计清单</h3>
+    <table>
+      <tr><th>防护层</th><th>措施</th><th>防什么</th></tr>
+      <tr><td><strong>路径校验</strong></td><td><code>safe_path()</code> resolve + prefix 检查</td><td>读取系统文件、覆盖关键配置</td></tr>
+      <tr><td><strong>操作白名单</strong></td><td>只允许 SELECT，拒绝 DROP/DELETE/INSERT 等</td><td>数据被删除、篡改</td></tr>
+      <tr><td><strong>只读连接</strong></td><td><code>sqlite3.connect("file:...?mode=ro")</code></td><td>即使绕过代码检查也无法写入</td></tr>
+      <tr><td><strong>文件大小限制</strong></td><td>拒绝读取超过 1MB 的文件</td><td>内存溢出、读取二进制大文件</td></tr>
+      <tr><td><strong>结果行数限制</strong></td><td>SQL 查询最多返回 100 行</td><td>全表扫描导致 Token 爆炸</td></tr>
+    </table>
+    <div class="callout callout-info">
+      <strong>核心原则：</strong>最小权限。LLM 只需要"读取"就够了？就不要给"写入"权限。永远从最严格开始，按需放开。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ Tab 6: 连接 Claude Code ═══════ -->
+<div class="tab-content" id="tab-claude-code">
+
+  <div class="card">
+    <h3>两种配置方式</h3>
+
+    <h4>方式 1：项目级配置（推荐）</h4>
+    <p style="margin-bottom:8px;">在项目根目录创建 <code>.mcp.json</code>：</p>
+    <pre><code>{
+  <span style="color:var(--orange)">"mcpServers"</span>: {
+    <span style="color:var(--orange)">"local-tools"</span>: {
+      <span style="color:var(--orange)">"command"</span>: <span style="color:var(--orange)">"python3"</span>,
+      <span style="color:var(--orange)">"args"</span>: [<span style="color:var(--orange)">"mcp_server.py"</span>],
+      <span style="color:var(--orange)">"env"</span>: {
+        <span style="color:var(--orange)">"WORKSPACE_DIR"</span>: <span style="color:var(--orange)">"/path/to/your/workspace"</span>,
+        <span style="color:var(--orange)">"DB_PATH"</span>: <span style="color:var(--orange)">"/path/to/your/database.db"</span>
+      }
+    }
+  }
+}</code></pre>
+
+    <h4 style="margin-top:16px;">方式 2：全局配置</h4>
+    <p style="margin-bottom:8px;">编辑 <code>~/.claude/settings.json</code>：</p>
+    <pre><code>{
+  <span style="color:var(--orange)">"mcpServers"</span>: {
+    <span style="color:var(--orange)">"local-tools"</span>: {
+      <span style="color:var(--orange)">"command"</span>: <span style="color:var(--orange)">"python3"</span>,
+      <span style="color:var(--orange)">"args"</span>: [<span style="color:var(--orange)">"/absolute/path/to/mcp_server.py"</span>]
+    }
+  }
+}</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>验证连接 + 使用示例</h3>
+    <p style="margin-bottom:12px;">配置完成后，在 Claude Code 中验证：</p>
+    <pre><code><span style="color:var(--muted)"># 验证连接成功</span>
+/list_tools
+
+<span style="color:var(--muted)"># 应该看到 list_directory, read_file, db_query 等工具</span></code></pre>
+
+    <p style="margin:16px 0 12px;">然后直接用自然语言操作：</p>
+    <div class="grid-2">
+      <div class="demo-card">
+        <h4>文件操作示例</h4>
+        <p style="margin-top:8px;">
+          "帮我看看工作目录下有什么文件"<br>
+          "读取 config.json 的内容"<br>
+          "搜索所有 .py 文件"<br>
+          "创建一个 hello.py 文件"
+        </p>
+      </div>
+      <div class="demo-card">
+        <h4>数据库查询示例</h4>
+        <p style="margin-top:8px;">
+          "数据库中有哪些表？"<br>
+          "查看 products 表的结构"<br>
+          "查询每个分类的产品数量和平均价格"<br>
+          "导出 orders 表的数据"
+        </p>
+      </div>
+    </div>
+
+    <div class="callout callout-tip" style="margin-top:12px;">
+      <strong>Claude Code 会自动：</strong>发现你的 MCP Server 工具 → 根据问题选择合适的工具 → 调用工具获取结果 → 将结果融入回答。你只需要用自然语言描述需求。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ Tab 7: MCP vs 其他方案 ═══════ -->
+<div class="tab-content" id="tab-compare">
+
+  <div class="card">
+    <h3>MCP vs Function Calling vs LangChain Tool</h3>
+    <table>
+      <tr><th></th><th>OpenAI Function Calling</th><th>LangChain @tool</th><th>MCP</th></tr>
+      <tr><td><strong>范围</strong></td><td>单次对话内的工具</td><td>单个应用内的工具</td><td><span class="tag tag-green">跨应用、跨平台标准</span></td></tr>
+      <tr><td><strong>定义方式</strong></td><td>JSON Schema</td><td>Python 装饰器</td><td>Python 装饰器 + JSON Schema</td></tr>
+      <tr><td><strong>部署</strong></td><td>嵌入代码</td><td>嵌入代码</td><td><span class="tag tag-green">独立进程</span></td></tr>
+      <tr><td><strong>传输</strong></td><td>HTTP API</td><td>内存调用</td><td>stdio / SSE</td></tr>
+      <tr><td><strong>平台绑定</strong></td><td>仅 OpenAI</td><td>LangChain 生态</td><td><span class="tag tag-green">所有支持 MCP 的平台</span></td></tr>
+      <tr><td><strong>工具复用</strong></td><td>每个项目重新定义</td><td>可复用但不跨平台</td><td><span class="tag tag-green">一次定义到处使用</span></td></tr>
+      <tr><td><strong>安全隔离</strong></td><td>无</td><td>无</td><td><span class="tag tag-green">进程级隔离</span></td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>决策树：什么时候用什么</h3>
+    <div style="display:flex;gap:12px;text-align:center;justify-content:center;flex-wrap:wrap;margin:20px 0;">
+      <div style="flex:1;min-width:160px;max-width:200px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:20px;">
+        <div style="font-size:1.5em;margin-bottom:8px;">1️⃣</div>
+        <div class="tag tag-orange" style="font-size:.85em;padding:5px 12px;">单个 OpenAI 项目<br>1-2 个简单工具</div>
+        <div style="margin-top:10px;font-weight:600;">→ Function Calling</div>
+      </div>
+      <div style="flex:1;min-width:160px;max-width:200px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:20px;">
+        <div style="font-size:1.5em;margin-bottom:8px;">🔗</div>
+        <div class="tag tag-green" style="font-size:.85em;padding:5px 12px;">LangChain 项目<br>多个 LLM 组件</div>
+        <div style="margin-top:10px;font-weight:600;">→ @tool 装饰器</div>
+      </div>
+      <div style="flex:1;min-width:160px;max-width:200px;background:var(--bg);border:1px solid var(--pink);border-radius:10px;padding:20px;">
+        <div style="font-size:1.5em;margin-bottom:8px;">🌐</div>
+        <div class="tag tag-pink" style="font-size:.85em;padding:5px 12px;">多平台、多项目<br>需要复用的工具</div>
+        <div style="margin-top:10px;font-weight:600;">→ MCP Server</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>它们可以共存</h3>
+    <div class="arch-diagram">
+      <div class="arch-row">
+        <div class="arch-box server" style="min-width:160px;">MCP Server<br><small>提供工具（独立进程）</small></div>
+      </div>
+      <div class="arch-arrow">│ 标准协议</div>
+      <div class="arch-row">
+        <div class="arch-box client" style="min-width:160px;">LangChain @tool<br><small>在一个 Node 内调用 MCP 工具</small></div>
+      </div>
+      <div class="arch-arrow">│ bind_tools</div>
+      <div class="arch-row">
+        <div class="arch-box host" style="min-width:160px;">OpenAI Function Calling<br><small>LLM 层面的调用格式</small></div>
+      </div>
+    </div>
+    <div class="callout callout-info" style="margin-top:12px;">
+      <strong>三层协作：</strong>MCP Server 提供工具 → LangChain @tool 在应用层使用 → OpenAI Function Calling 在 LLM 层执行调用。<br>
+      每一层解决不同的问题，配合使用效果最好。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>核心收获</h3>
+    <div class="grid-2">
+      <div>
+        <h4>MCP 做了什么？</h4>
+        <ul style="padding-left:20px;color:var(--muted);font-size:.9em;line-height:2;">
+          <li>把工具定义 → <strong>标准化</strong>（跨平台通用）</li>
+          <li>把工具部署 → <strong>独立进程化</strong>（即插即用）</li>
+          <li>把工具发现 → <strong>自动化</strong>（list_tools）</li>
+          <li>把工具调用 → <strong>协议化</strong>（JSON-RPC）</li>
+          <li>把安全隔离 → <strong>进程级</strong>（独立权限）</li>
+        </ul>
+      </div>
+      <div>
+        <h4>关键原则</h4>
+        <ul style="padding-left:20px;color:var(--muted);font-size:.9em;line-height:2;">
+          <li>MCP 不是替代 Function Calling——是<strong>标准化</strong>它</li>
+          <li>简单场景用原生 API，多平台复用用 MCP</li>
+          <li>Tool description 是最关键的——LLM 靠它决策</li>
+          <li>永远不要信任 LLM 传入的参数——做好安全防护</li>
+          <li>最小权限原则：只开放 LLM 真正需要的</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout callout-tip" style="margin-top:12px;">
+      <strong>一句话总结：</strong>OpenAI 发明了 Function Calling（LLM 调工具的能力），Anthropic 发明了 MCP（工具调用的标准化协议），LangChain 提供了 @tool（工具定义的最佳开发体验）。三者配合：用 @tool 开发 → 用 MCP 发布 → 任何 LLM 都能用。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>配套资源</h3>
+    <table>
+      <tr><th>资源</th><th>说明</th></tr>
+      <tr><td><code>mcp_guide.md</code></td><td>完整教学指南（11 章：Tool Calling → MCP 概念 → Claude Code 集成）</td></tr>
+      <tr><td><code>mcp_server.py</code></td><td>MCP Server 实现（8 个工具 + 安全防护 + <code>--demo</code> 自测模式）</td></tr>
+      <tr><td><code>006-langchain-learning</code></td><td>前置知识：LangChain Tool Calling、@tool 装饰器</td></tr>
+    </table>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>
