@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LangChain 学习 —— 从手写 Pipeline 到声明式 AI 应用</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a;
+    --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --orange: #d2991d; --red: #f85149;
+    --purple: #a371f7; --cyan: #39c5cf; --pink: #db61a2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7;
+  }
+  .hero {
+    background: linear-gradient(135deg, #1a1d27 0%, #1f2937 50%, #111827 100%);
+    border-bottom: 1px solid var(--border); padding: 60px 24px 48px; text-align: center;
+  }
+  .hero h1 { font-size: 2.6em; background: linear-gradient(135deg, #3fb950, var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+  .hero p { color: var(--muted); font-size: 1.1em; max-width: 700px; margin: 0 auto; }
+
+  .tabs {
+    display: flex; gap: 2px; background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 0 24px; position: sticky; top: 0; z-index: 10; overflow-x: auto;
+  }
+  .tab-btn {
+    background: none; border: none; color: var(--muted); padding: 14px 18px;
+    font-size: .91em; cursor: pointer; border-bottom: 2px solid transparent;
+    transition: .2s; font-family: inherit; white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-content { display: none; padding: 40px 24px; max-width: 1000px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 28px; margin-bottom: 24px;
+  }
+  .card h3 { font-size: 1.2em; margin-bottom: 12px; color: #e6edf3; }
+  .card h4 { font-size: 1.05em; margin: 16px 0 8px; color: #d0d7de; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 768px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+  .callout {
+    padding: 14px 18px; border-radius: 8px; margin: 16px 0; font-size: .93em;
+  }
+  .callout-info { background: rgba(88,166,255,.1); border-left: 3px solid var(--accent); }
+  .callout-warn { background: rgba(210,153,29,.1); border-left: 3px solid var(--orange); }
+  .callout-tip { background: rgba(52,211,153,.1); border-left: 3px solid #34d399; }
+  .callout-danger { background: rgba(248,81,73,.1); border-left: 3px solid var(--red); }
+
+  pre {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px; overflow-x: auto; font-size: .87em; line-height: 1.6;
+  }
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: .88em;
+  }
+  :not(pre) > code {
+    background: rgba(110,118,129,.15); padding: 2px 6px; border-radius: 4px;
+  }
+
+  table {
+    width: 100%; border-collapse: collapse; margin: 16px 0; font-size: .91em;
+  }
+  th, td {
+    text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border);
+  }
+  th { color: var(--muted); font-weight: 600; font-size: .85em; text-transform: uppercase; }
+  tr:hover { background: rgba(255,255,255,.02); }
+
+  .tag {
+    display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: .8em; font-weight: 500;
+  }
+  .tag-green { background: rgba(63,185,80,.15); color: var(--green); }
+  .tag-blue { background: rgba(88,166,255,.15); color: var(--accent); }
+  .tag-purple { background: rgba(163,113,247,.15); color: var(--purple); }
+  .tag-orange { background: rgba(210,153,29,.15); color: var(--orange); }
+  .tag-red { background: rgba(248,81,73,.15); color: var(--red); }
+  .tag-cyan { background: rgba(57,197,207,.15); color: var(--cyan); }
+
+  .pipeline {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    flex-wrap: wrap; margin: 24px 0;
+  }
+  .pipe-step {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; text-align: center; min-width: 90px; transition: .3s;
+  }
+  .pipe-step:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .pipe-step .icon { font-size: 1.5em; margin-bottom: 4px; }
+  .pipe-step .label { font-weight: 600; font-size: .9em; }
+  .pipe-step .desc { color: var(--muted); font-size: .78em; margin-top: 4px; }
+  .pipe-arrow { color: var(--accent); font-size: 1.4em; font-weight: bold; }
+
+  .code-compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0;
+  }
+  @media (max-width: 768px) { .code-compare { grid-template-columns: 1fr; } }
+  .code-block {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px; overflow-x: auto;
+  }
+  .code-block.bad { border-left: 3px solid var(--red); }
+  .code-block.good { border-left: 3px solid var(--green); }
+  .code-block .label {
+    font-size: .8em; font-weight: 600; margin-bottom: 8px; display: block;
+  }
+
+  .demo-card {
+    border: 1px solid var(--border); border-radius: 10px; padding: 18px;
+    background: var(--bg); transition: .2s;
+  }
+  .demo-card:hover { border-color: var(--accent); }
+  .demo-card h4 { color: var(--accent); margin-bottom: 6px; font-size: 1em; }
+  .demo-card p { color: var(--muted); font-size: .88em; line-height: 1.6; }
+
+  .evolve-row {
+    display: flex; gap: 12px; align-items: flex-start; margin: 20px 0; flex-wrap: wrap; justify-content: center;
+  }
+  .evolve-box {
+    flex: 1; min-width: 130px; max-width: 160px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px; text-align: center; transition: .3s;
+  }
+  .evolve-box:hover { border-color: var(--accent); transform: translateY(-3px); }
+  .evolve-box .num { font-size: 2em; font-weight: 700; }
+  .evolve-box .title { font-weight: 600; margin: 6px 0 4px; }
+  .evolve-box .info { font-size: .8em; color: var(--muted); }
+  .evolve-connector {
+    display: flex; align-items: center; color: var(--accent); font-size: 1.2em;
+    min-width: 20px; justify-content: center; padding-top: 30px;
+  }
+
+  .runnable-diagram {
+    display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 20px 0;
+  }
+  .runnable-row {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center;
+  }
+  .runnable-box {
+    background: var(--bg); border: 1px solid; border-radius: 8px;
+    padding: 10px 16px; font-size: .85em; text-align: center; min-width: 80px;
+  }
+  .runnable-box.blue { border-color: var(--accent); }
+  .runnable-box.green { border-color: var(--green); }
+  .runnable-box.purple { border-color: var(--purple); }
+  .runnable-box.orange { border-color: var(--orange); }
+  .runnable-box.pink { border-color: var(--pink); }
+  .runnable-box.cyan { border-color: var(--cyan); }
+  .runnable-arrow { color: var(--muted); font-size: 1.2em; }
+
+  .flow-horizontal {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 16px 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>LangChain 学习</h1>
+  <p>从手写 Pipeline 到声明式 AI 应用 —— 理解 LLM / PromptTemplate / OutputParser / Tool / Retriever / Chain / Runnable</p>
+</div>
+
+<div class="tabs" id="tabBar">
+  <button class="tab-btn active" data-tab="why">为什么需要 LangChain</button>
+  <button class="tab-btn" data-tab="runnable">Runnable 协议</button>
+  <button class="tab-btn" data-tab="llm-prompt">LLM + Prompt</button>
+  <button class="tab-btn" data-tab="parser-tool">OutputParser + Tool</button>
+  <button class="tab-btn" data-tab="retriever-chain">Retriever + Chain</button>
+  <button class="tab-btn" data-tab="lcel">LCEL 实战</button>
+  <button class="tab-btn" data-tab="rag-refactor">RAG 重构对比</button>
+  <button class="tab-btn" data-tab="ecology">生态全景</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Tab 1: 为什么需要 LangChain
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="tab-content active" id="tab-why">
+
+  <div class="card">
+    <h3>手写 LLM 应用的五大痛点</h3>
+    <table>
+      <tr><th>痛点</th><th>手写做法</th><th>问题</th></tr>
+      <tr>
+        <td><strong>Prompt 拼接</strong></td>
+        <td><code>f"你是{role}，请回答{question}"</code></td>
+        <td><span class="tag tag-red">变量多了像乱麻</span>，模板和逻辑混在一起</td>
+      </tr>
+      <tr>
+        <td><strong>输出解析</strong></td>
+        <td><code>json.loads(response)</code> + try/except</td>
+        <td><span class="tag tag-red">LLM 输出不稳定</span>，经常解析失败</td>
+      </tr>
+      <tr>
+        <td><strong>Tool Calling</strong></td>
+        <td>手写 JSON Schema + if/elif dispatch</td>
+        <td><span class="tag tag-red">样板代码多</span>，函数多了维护困难</td>
+      </tr>
+      <tr>
+        <td><strong>数据库切换</strong></td>
+        <td>ChromaDB → FAISS 改所有检索代码</td>
+        <td><span class="tag tag-red">供应商绑定</span>，换数据库=重构</td>
+      </tr>
+      <tr>
+        <td><strong>流程编排</strong></td>
+        <td>手写 pipeline 函数按顺序调用</td>
+        <td><span class="tag tag-red">线性写死</span>，加一步改全局</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>LangChain 的答案：标准化 + 声明式</h3>
+    <div class="grid-2">
+      <div class="code-block bad">
+        <span class="label" style="color:var(--red);">手写 Pipeline</span>
+<pre><code><span style="color:var(--muted)"># 命令式：描述"怎么做"</span>
+<span style="color:var(--accent)">def</span> <span style="color:var(--green)">rag_pipeline</span>(query):
+    docs = retriever.retrieve(query)
+    context = format_docs(docs)
+    messages = build_prompt(query, context)
+    response = llm.call(messages)
+    <span style="color:var(--accent)">return</span> extract_answer(response)
+
+<span style="color:var(--muted)"># 痛点：</span>
+<span style="color:var(--muted)"># - 步骤线性写死</span>
+<span style="color:var(--muted)"># - 加并行分支要手写多线程</span>
+<span style="color:var(--muted)"># - 切模型/数据库改所有代码</span></code></pre>
+      </div>
+      <div class="code-block good">
+        <span class="label" style="color:var(--green);">LangChain LCEL</span>
+<pre><code><span style="color:var(--muted)"># 声明式：描述"数据怎么流"</span>
+rag_chain = (
+    {
+        <span style="color:var(--orange)">"context"</span>: retriever | format_docs,
+        <span style="color:var(--orange)">"question"</span>: RunnablePassthrough(),
+    }
+    | prompt
+    | llm
+    | parser
+)
+
+answer = rag_chain.invoke(query)
+
+<span style="color:var(--muted)"># 优势：</span>
+<span style="color:var(--muted)"># - 数据流一目了然</span>
+<span style="color:var(--muted)"># - 加并行分支只需加一行</span>
+<span style="color:var(--muted)"># - 换模型/数据库只改一个构造函数</span></code></pre>
+      </div>
+    </div>
+    <div class="callout callout-tip">
+      <strong>核心哲学：</strong>LangChain 不是给你新能力，而是<strong>把重复模式标准化</strong>。
+      所有组件都是"积木块"（Runnable），用 <code>|</code> 管道连接。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>什么时候用 LangChain？</h3>
+    <table>
+      <tr><th>场景</th><th>推荐工具</th><th>示例</th></tr>
+      <tr><td>单次 LLM 调用</td><td><span class="tag tag-orange">原生 openai</span></td><td>简单问答、翻译</td></tr>
+      <tr><td>复杂 Pipeline</td><td><span class="tag tag-green">LangChain LCEL</span></td><td>RAG、多步骤处理</td></tr>
+      <tr><td>多 Agent / 状态机</td><td><span class="tag tag-purple">LangGraph</span></td><td>Agent 循环、人工审核、条件路由</td></tr>
+    </table>
+    <div class="callout callout-info">
+      <strong>判断标准：</strong>重复 3 次以上的模式才考虑用 LangChain 抽象。不要为了"酷"而用。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Tab 2: Runnable 协议
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-runnable">
+
+  <div class="card">
+    <h3>一切皆 Runnable —— LangChain 的核心协议</h3>
+    <p style="margin-bottom:16px;">LangChain 的所有组件（LLM、Prompt、Parser、Retriever...）都实现了同一个接口：<strong>Runnable</strong>。</p>
+
+    <div class="runnable-diagram">
+      <div style="text-align:center;margin-bottom:8px;">
+        <span class="tag tag-purple" style="font-size:.9em;padding:6px 16px;">Runnable 三大方法</span>
+      </div>
+      <div class="runnable-row">
+        <div class="runnable-box blue"><strong>.invoke(input)</strong><br><small>同步执行 → output</small></div>
+        <div class="runnable-box green"><strong>.stream(input)</strong><br><small>流式输出 → iterator</small></div>
+        <div class="runnable-box purple"><strong>.batch(inputs)</strong><br><small>批量并发 → outputs</small></div>
+      </div>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>为什么这很重要？</strong>因为所有组件接口一致，所以可以用 <code>|</code> 无差别连接：
+    </div>
+
+    <div class="pipeline">
+      <div class="pipe-step"><div class="icon">📝</div><div class="label">Prompt</div><div class="desc">Runnable</div></div>
+      <div class="pipe-arrow">|</div>
+      <div class="pipe-step"><div class="icon">🤖</div><div class="label">LLM</div><div class="desc">Runnable</div></div>
+      <div class="pipe-arrow">|</div>
+      <div class="pipe-step"><div class="icon">📤</div><div class="label">Parser</div><div class="desc">Runnable</div></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step" style="border-color:var(--green);"><div class="icon">✅</div><div class="label">结果</div><div class="desc">str</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>四个关键 Runnable 类型</h3>
+    <div class="grid-2">
+      <div class="demo-card">
+        <h4>RunnablePassthrough <span class="tag tag-blue">透传</span></h4>
+        <p>数据原样通过，不做任何处理。在 RAG Chain 中把 question 原样传给 Prompt：</p>
+        <pre style="margin-top:8px;"><code>{"context": retriever | format_docs,
+ "question": <span style="color:var(--accent)">RunnablePassthrough()</span>}</code></pre>
+      </div>
+      <div class="demo-card">
+        <h4>RunnableLambda <span class="tag tag-green">适配器</span></h4>
+        <p>把任意 Python 函数包装成 Runnable，接入管道：</p>
+        <pre style="margin-top:8px;"><code>chain = prompt | llm | parser \
+       | <span style="color:var(--accent)">RunnableLambda(count_words)</span></code></pre>
+      </div>
+      <div class="demo-card">
+        <h4>RunnableParallel <span class="tag tag-purple">并行</span></h4>
+        <p>并发执行多个分支，结果合并为一个 dict：</p>
+        <pre style="margin-top:8px;"><code><span style="color:var(--accent)">RunnableParallel(</span>
+    summary=chain_summary,
+    translation=chain_en,
+<span style="color:var(--accent)">)</span></code></pre>
+      </div>
+      <div class="demo-card">
+        <h4>RunnableBranch <span class="tag tag-orange">条件</span></h4>
+        <p>根据条件路由到不同分支（if/elif/else）：</p>
+        <pre style="margin-top:8px;"><code><span style="color:var(--accent)">RunnableBranch(</span>
+    (is_technical, tech_chain),
+    (is_hr, hr_chain),
+    default_chain,
+<span style="color:var(--accent)">)</span></code></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>数据在管道中如何流转？</h3>
+    <div class="pipeline">
+      <div class="pipe-step"><div class="label">{question}</div><div class="desc">dict</div></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step"><div class="icon">📝</div><div class="label">Prompt</div><div class="desc">ChatPromptValue</div></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step"><div class="icon">🤖</div><div class="label">LLM</div><div class="desc">AIMessage</div></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step"><div class="icon">📤</div><div class="label">Parser</div><div class="desc">str</div></div>
+    </div>
+    <p style="color:var(--muted);font-size:.9em;margin-top:12px;">
+      每个环节的输出自动成为下一环节的输入。| 操作符自动完成类型转换和数据传递。
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Tab 3: LLM + PromptTemplate
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-llm-prompt">
+
+  <div class="card">
+    <h3>LLM 抽象：ChatOpenAI</h3>
+    <div class="code-compare">
+      <div class="code-block bad">
+        <span class="label" style="color:var(--red);">原生 openai</span>
+<pre><code><span style="color:var(--accent)">from</span> openai <span style="color:var(--accent)">import</span> OpenAI
+client = OpenAI(api_key=<span style="color:var(--orange)">"..."</span>)
+
+response = client.chat.completions.create(
+    model=<span style="color:var(--orange)">"deepseek-chat"</span>,
+    messages=[
+        {<span style="color:var(--orange)">"role"</span>: <span style="color:var(--orange)">"user"</span>,
+         <span style="color:var(--orange)">"content"</span>: <span style="color:var(--orange)">"什么是RAG？"</span>}
+    ],
+    temperature=0.3,
+)
+answer = response.choices[0].message.content
+
+<span style="color:var(--muted)">// 每次都要重复 model/messages/temperature</span>
+<span style="color:var(--muted)">// 切模型要改所有调用点</span></code></pre>
+      </div>
+      <div class="code-block good">
+        <span class="label" style="color:var(--green);">LangChain ChatOpenAI</span>
+<pre><code><span style="color:var(--accent)">from</span> langchain_openai <span style="color:var(--accent)">import</span> ChatOpenAI
+<span style="color:var(--accent)">from</span> langchain_core.messages <span style="color:var(--accent)">import</span> HumanMessage
+
+llm = ChatOpenAI(
+    model=<span style="color:var(--orange)">"deepseek-chat"</span>,
+    temperature=0.3,
+    max_retries=3,          <span style="color:var(--muted)"># 自动重试</span>
+)
+<span style="color:var(--muted)"># 配置一次，到处复用</span>
+result = llm.invoke([
+    HumanMessage(content=<span style="color:var(--orange)">"什么是RAG？"</span>)
+])
+answer = result.content
+
+<span style="color:var(--muted)">// 切模型只改构造函数一处</span>
+<span style="color:var(--muted)">// 可和 PromptTemplate | 管道组合</span></code></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>PromptTemplate：模板和变量分离</h3>
+    <div class="code-compare">
+      <div class="code-block bad">
+        <span class="label" style="color:var(--red);">f-string 拼接</span>
+<pre><code>role = <span style="color:var(--orange)">"Python 专家"</span>
+question = <span style="color:var(--orange)">"装饰器是什么"</span>
+
+system = <span style="color:var(--green)">f"你是{role}。要求：简洁。"</span>
+user = <span style="color:var(--green)">f"请解释：{question}"</span>
+
+messages = [
+    {<span style="color:var(--orange)">"role"</span>: <span style="color:var(--orange)">"system"</span>, <span style="color:var(--orange)">"content"</span>: system},
+    {<span style="color:var(--orange)">"role"</span>: <span style="color:var(--orange)">"user"</span>, <span style="color:var(--orange)">"content"</span>: user},
+]
+
+<span style="color:var(--muted)">// 模板和逻辑混在一起</span>
+<span style="color:var(--muted)">// 改 Prompt 要翻代码</span>
+<span style="color:var(--muted)">// 变量多了不可读</span></code></pre>
+      </div>
+      <div class="code-block good">
+        <span class="label" style="color:var(--green);">ChatPromptTemplate</span>
+<pre><code><span style="color:var(--accent)">from</span> langchain_core.prompts \
+    <span style="color:var(--accent)">import</span> ChatPromptTemplate
+
+prompt = ChatPromptTemplate.from_messages([
+    (<span style="color:var(--orange)">"system"</span>, <span style="color:var(--orange)">"你是{role}。要求：{req}"</span>),
+    (<span style="color:var(--orange)">"user"</span>, <span style="color:var(--orange)">"请解释：{question}"</span>),
+])
+
+messages = prompt.invoke({
+    <span style="color:var(--orange)">"role"</span>: <span style="color:var(--orange)">"Python 专家"</span>,
+    <span style="color:var(--orange)">"req"</span>: <span style="color:var(--orange)">"用比喻解释"</span>,
+    <span style="color:var(--orange)">"question"</span>: <span style="color:var(--orange)">"装饰器"</span>,
+})
+
+<span style="color:var(--muted)">// 模板和变量分离</span>
+<span style="color:var(--muted)">// 变量缺失会报 KeyError（安全）</span>
+<span style="color:var(--muted)">// 同一模板可复用无数次</span></code></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Few-shot Prompting：给 LLM 看示例</h3>
+    <pre><code><span style="color:var(--accent)">from</span> langchain_core.prompts <span style="color:var(--accent)">import</span> FewShotChatMessagePromptTemplate
+
+examples = [
+    {<span style="color:var(--orange)">"input"</span>: <span style="color:var(--orange)">"今天心情真好"</span>, <span style="color:var(--orange)">"output"</span>: <span style="color:var(--orange)">"POSITIVE"</span>},
+    {<span style="color:var(--orange)">"input"</span>: <span style="color:var(--orange)">"等了三小时"</span>, <span style="color:var(--orange)">"output"</span>: <span style="color:var(--orange)">"NEGATIVE"</span>},
+    {<span style="color:var(--orange)">"input"</span>: <span style="color:var(--orange)">"还行吧"</span>, <span style="color:var(--orange)">"output"</span>: <span style="color:var(--orange)">"NEUTRAL"</span>},
+]
+
+<span style="color:var(--muted)"># FewShotChatMessagePromptTemplate 自动管理示例格式</span>
+<span style="color:var(--muted)"># 最终 Prompt = 示例对话 + 当前问题</span></code></pre>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Tab 4: OutputParser + Tool
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-parser-tool">
+
+  <div class="card">
+    <h3>OutputParser：让 LLM 输出结构化数据</h3>
+    <div class="grid-3" style="margin-bottom:16px;">
+      <div class="demo-card" style="border-top:3px solid var(--accent);">
+        <h4>StrOutputParser</h4>
+        <p style="color:var(--muted);">AIMessage → 纯字符串</p>
+        <code style="font-size:.82em;">chain | StrOutputParser()</code>
+      </div>
+      <div class="demo-card" style="border-top:3px solid var(--purple);">
+        <h4>JsonOutputParser</h4>
+        <p style="color:var(--muted);">自动解析 JSON + 去 markdown 包裹</p>
+        <code style="font-size:.82em;">chain | JsonOutputParser()</code>
+      </div>
+      <div class="demo-card" style="border-top:3px solid var(--green);">
+        <h4>PydanticOutputParser</h4>
+        <p style="color:var(--muted);">类型安全 + 自动验证 + retry</p>
+        <code style="font-size:.82em;">chain | PydanticOutputParser(pydantic_object=Person)</code>
+      </div>
+    </div>
+
+    <h4>PydanticOutputParser 实战：自动纠错机制</h4>
+    <div class="flow-horizontal" style="justify-content:center; font-size:.88em;">
+      <span class="tag tag-blue">LLM 输出</span> →
+      <span class="tag tag-purple">Pydantic 验证</span> →
+      <span style="color:var(--green);">✅ 通过 → 返回对象</span>
+      <span style="color:var(--muted);">或</span>
+      <span style="color:var(--red);">❌ 失败 → 错误信息 + 原始输出喂回 LLM → 重试</span>
+    </div>
+    <div class="callout callout-tip" style="margin-top:12px;">
+      <strong>自动纠错：</strong>LLM 输出格式不对 → Pydantic 验证失败 → Parser 自动把错误喂回 LLM → LLM 修正输出 → 解析成功。你不需要写一行 retry 代码。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Tool：让 LLM 调用外部函数</h3>
+    <div class="code-compare">
+      <div class="code-block bad">
+        <span class="label" style="color:var(--red);">手写 Function Calling</span>
+<pre><code><span style="color:var(--muted)">// 1. 手写 JSON Schema（容易出错）</span>
+tools = [{
+    <span style="color:var(--orange)">"type"</span>: <span style="color:var(--orange)">"function"</span>,
+    <span style="color:var(--orange)">"function"</span>: {
+        <span style="color:var(--orange)">"name"</span>: <span style="color:var(--orange)">"get_weather"</span>,
+        <span style="color:var(--orange)">"parameters"</span>: {
+            <span style="color:var(--orange)">"properties"</span>: {
+                <span style="color:var(--orange)">"city"</span>: {<span style="color:var(--orange)">"type"</span>: <span style="color:var(--orange)">"string"</span>}
+            },
+            <span style="color:var(--orange)">"required"</span>: [<span style="color:var(--orange)">"city"</span>],
+        }
+    }
+}]
+
+<span style="color:var(--muted)">// 2. 解析 tool_call</span>
+tc = response.choices[0].message.tool_calls[0]
+args = json.loads(tc.function.arguments)
+
+<span style="color:var(--muted)">// 3. 手工 dispatch</span>
+<span style="color:var(--accent)">if</span> tc.function.name == <span style="color:var(--orange)">"get_weather"</span>:
+    result = get_weather(args[<span style="color:var(--orange)">"city"</span>])
+<span style="color:var(--accent)">elif</span> tc.function.name == <span style="color:var(--orange)">"get_stock"</span>:
+    result = get_stock(...)
+<span style="color:var(--muted)">// 10 个函数 = 10 个 elif</span></code></pre>
+      </div>
+      <div class="code-block good">
+        <span class="label" style="color:var(--green);">LangChain @tool</span>
+<pre><code><span style="color:var(--accent">from</span> langchain_core.tools <span style="color:var(--accent)">import</span> tool
+
+<span style="color:var(--muted)">// @tool 自动从函数签名+docstring生成Schema</span>
+<span style="color:var(--purple)">@tool</span>
+<span style="color:var(--accent)">def</span> <span style="color:var(--green)">get_weather</span>(city: str) -> str:
+    <span style="color:var(--orange)">"""查询城市当前天气"""</span>
+    <span style="color:var(--accent)">return</span> weather_db.get(city, <span style="color:var(--orange)">"未知"</span>)
+
+<span style="color:var(--purple)">@tool</span>
+<span style="color:var(--accent)">def</span> <span style="color:var(--green)">get_stock</span>(symbol: str) -> float:
+    <span style="color:var(--orange)">"""查询股票价格"""</span>
+    <span style="color:var(--accent)">return</span> stock_db.get(symbol, 0.0)
+
+<span style="color:var(--muted)">// 一行绑定</span>
+llm_with_tools = llm.bind_tools([
+    get_weather, get_stock
+])
+
+<span style="color:var(--muted)">// LLM 自动判断何时调哪个工具</span>
+<span style="color:var(--muted)">// 不需要写 dispatch if/elif</span></code></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>LLM 自动组合多个工具</h3>
+    <div class="flow-horizontal" style="justify-content:center;">
+      <span class="tag tag-blue">用户: "查极客教育总部，然后查那里天气"</span>
+      <span class="runnable-arrow">→</span>
+      <span class="tag tag-purple">LLM 决定调 get_company_info</span>
+      <span class="runnable-arrow">→</span>
+      <span class="tag tag-orange">得到: "杭州"</span>
+      <span class="runnable-arrow">→</span>
+      <span class="tag tag-purple">LLM 决定调 get_weather("杭州")</span>
+      <span class="runnable-arrow">→</span>
+      <span class="tag tag-green">回答: "多云，28°C"</span>
+    </div>
+    <div class="callout callout-info" style="margin-top:12px;">
+      LLM 自动完成：理解用户意图 → 规划需要哪些工具 → 按序调用 → 用中间结果调下一个工具 → 生成最终答案
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Tab 5: Retriever + Chain
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-retriever-chain">
+
+  <div class="card">
+    <h3>Retriever：检索的统一抽象层</h3>
+    <div class="callout callout-warn">
+      <strong>核心问题：</strong>原生 ChromaDB 的 API 是 <code>collection.query()</code> → 返回深层 dict。
+      FAISS 的 API 是 <code>index.search()</code> → 返回完全不同的格式。<br>
+      换数据库 = 重写所有检索代码。
+    </div>
+
+    <div class="code-compare">
+      <div class="code-block bad">
+        <span class="label" style="color:var(--red);">原生 ChromaDB</span>
+<pre><code>results = collection.query(
+    query_texts=[<span style="color:var(--orange)">"公司政策"</span>],
+    n_results=3,
+)
+<span style="color:var(--accent)">for</span> i <span style="color:var(--accent)">in</span> range(len(results[<span style="color:var(--orange)">"ids"</span>][0])):
+    doc_id = results[<span style="color:var(--orange)">"ids"</span>][0][i]
+    text = results[<span style="color:var(--orange)">"documents"</span>][0][i]
+    dist = results[<span style="color:var(--orange)">"distances"</span>][0][i]
+    meta = results[<span style="color:var(--orange)">"metadatas"</span>][0][i]
+
+<span style="color:var(--muted)">// 深层 dict 取值，容易出错</span>
+<span style="color:var(--muted)">// 换成 FAISS？API 完全不同</span></code></pre>
+      </div>
+      <div class="code-block good">
+        <span class="label" style="color:var(--green);">LangChain Retriever</span>
+<pre><code><span style="color:var(--muted)">// 统一接口，不管底层是什么数据库</span>
+retriever = vectorstore.as_retriever(
+    search_kwargs={<span style="color:var(--orange)">"k"</span>: 3}
+)
+
+docs = retriever.invoke(<span style="color:var(--orange)">"公司政策"</span>)
+<span style="color:var(--muted)">// → list[Document]</span>
+
+<span style="color:var(--accent)">for</span> doc <span style="color:var(--accent)">in</span> docs:
+    print(doc.page_content)       <span style="color:var(--muted)"># 统一</span>
+    print(doc.metadata[<span style="color:var(--orange)">"source"</span>])   <span style="color:var(--muted)"># 统一</span>
+
+<span style="color:var(--muted)">// 换数据库只改构造函数，检索代码不动</span>
+<span style="color:var(--muted)">// Chroma.from_documents() → 自动embed+建索引</span></code></pre>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <strong>核心抽象：</strong><code>retriever.invoke(query) → list[Document]</code><br>
+      不管底层是 Chroma / FAISS / Milvus / Pinecone，接口完全一致。供应商中立。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Chain：LCEL 声明式管道</h3>
+    <p style="margin-bottom:12px;">对比命令式 vs 声明式 —— 同样的 RAG 逻辑：</p>
+    <div class="code-compare">
+      <div class="code-block bad">
+        <span class="label" style="color:var(--red);">命令式（手写）</span>
+<pre><code><span style="color:var(--accent)">def</span> <span style="color:var(--green)">rag_pipeline</span>(query):
+    <span style="color:var(--muted)"># Step 1</span>
+    docs = retriever.retrieve(query)
+    <span style="color:var(--muted)"># Step 2</span>
+    context = format_docs(docs)
+    <span style="color:var(--muted)"># Step 3</span>
+    messages = build_prompt(query, context)
+    <span style="color:var(--muted)"># Step 4</span>
+    response = llm.call(messages)
+    <span style="color:var(--muted)"># Step 5</span>
+    <span style="color:var(--accent)">return</span> extract_answer(response)
+
+<span style="color:var(--muted)">// 做A → 存变量 → 做B → 存变量 → 做C</span>
+<span style="color:var(--muted)">// 关注"怎么做"</span></code></pre>
+      </div>
+      <div class="code-block good">
+        <span class="label" style="color:var(--green);">声明式（LCEL）</span>
+<pre><code>rag_chain = (
+    {
+        <span style="color:var(--orange)">"context"</span>: retriever | format_docs,
+        <span style="color:var(--orange)">"question"</span>: RunnablePassthrough(),
+    }
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+
+answer = rag_chain.invoke(query)
+
+<span style="color:var(--muted)">// A | B | C | D</span>
+<span style="color:var(--muted)">// 关注"数据怎么流"</span></code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Tab 6: LCEL 实战
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-lcel">
+
+  <div class="card">
+    <h3>LCEL 完整能力矩阵</h3>
+    <table>
+      <tr><th>模式</th><th>语法</th><th>场景</th></tr>
+      <tr>
+        <td><strong>线性管道</strong></td>
+        <td><code>A | B | C</code></td>
+        <td>顺序执行，上一步输出→下一步输入</td>
+      </tr>
+      <tr>
+        <td><strong>并行分支</strong></td>
+        <td><code>RunnableParallel(a=A, b=B)</code></td>
+        <td>翻译+摘要同时进行</td>
+      </tr>
+      <tr>
+        <td><strong>透传数据</strong></td>
+        <td><code>RunnablePassthrough()</code></td>
+        <td>RAG 中 question 原样传给 Prompt</td>
+      </tr>
+      <tr>
+        <td><strong>自定义处理</strong></td>
+        <td><code>RunnableLambda(my_func)</code></td>
+        <td>统计字数、格式化输出</td>
+      </tr>
+      <tr>
+        <td><strong>条件路由</strong></td>
+        <td><code>RunnableBranch((cond, chain), default)</code></td>
+        <td>不同类型问题走不同专家 Chain</td>
+      </tr>
+      <tr>
+        <td><strong>Dict 组装</strong></td>
+        <td><code>{"key1": chain_a, "key2": chain_b}</code></td>
+        <td>多路输入拼成 Prompt 变量</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>完整 RAG Chain 数据流图</h3>
+    <div class="runnable-diagram">
+      <div class="runnable-row">
+        <div class="runnable-box blue"><strong>invoke(query)</strong></div>
+      </div>
+      <div class="runnable-arrow">↓</div>
+      <div class="runnable-row">
+        <div class="runnable-box green">retriever.invoke(query)</div>
+        <div class="runnable-arrow">→</div>
+        <div class="runnable-box orange">format_docs(docs)</div>
+        <div style="color:var(--muted);margin:0 12px;">→ context</div>
+      </div>
+      <div class="runnable-arrow">↓</div>
+      <div class="runnable-row">
+        <div class="runnable-box cyan">RunnablePassthrough()</div>
+        <div style="color:var(--muted);margin:0 12px;">→ question</div>
+      </div>
+      <div class="runnable-arrow">↓</div>
+      <div class="runnable-row">
+        <div class="runnable-box purple" style="min-width:200px;">
+          <strong>{"context": ..., "question": ...}</strong>
+        </div>
+      </div>
+      <div class="runnable-arrow">↓</div>
+      <div class="runnable-row">
+        <div class="runnable-box orange">Prompt Template</div>
+        <div class="runnable-arrow">→</div>
+        <div class="runnable-box blue">LLM</div>
+        <div class="runnable-arrow">→</div>
+        <div class="runnable-box green">Parser</div>
+      </div>
+      <div class="runnable-arrow">↓</div>
+      <div class="runnable-row">
+        <div class="runnable-box" style="border-color:var(--green);"><strong>✅ 答案</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>并行执行实战</h3>
+    <pre><code><span style="color:var(--accent)">from</span> langchain_core.runnables <span style="color:var(--accent)">import</span> RunnableParallel
+
+<span style="color:var(--muted)"># 两个 LLM 调用并发执行，不是串行！</span>
+parallel_chain = <span style="color:var(--purple)">RunnableParallel</span>(
+    summary=chain_summary,        <span style="color:var(--muted)"># 分支1：生成摘要</span>
+    translation=chain_translation, <span style="color:var(--muted)"># 分支2：翻译英文</span>
+)
+
+result = parallel_chain.invoke({<span style="color:var(--orange)">"text"</span>: <span style="color:var(--orange)">"..."</span>})
+<span style="color:var(--muted)"># result = {"summary": "...", "translation": "..."}</span>
+<span style="color:var(--muted)"># 耗时 ≈ max(摘要耗时, 翻译耗时)，而非相加</span></code></pre>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Tab 7: RAG 重构对比
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-rag-refactor">
+
+  <div class="card">
+    <h3>代码量对比：手写 RAG vs LangChain RAG</h3>
+    <table>
+      <tr><th>组件</th><th>手写版（~300行）</th><th>LangChain 版（~120行）</th><th>减少</th></tr>
+      <tr>
+        <td><strong>分块器</strong></td>
+        <td><code>RecursiveChunker</code> 类 (~50行)</td>
+        <td><code>RecursiveCharacterTextSplitter()</code></td>
+        <td><span class="tag tag-green">1行</span></td>
+      </tr>
+      <tr>
+        <td><strong>向量化+存储</strong></td>
+        <td><code>chromadb.Client()</code> + <code>create_collection()</code> + <code>add()</code> (~15行)</td>
+        <td><code>Chroma.from_documents()</code></td>
+        <td><span class="tag tag-green">1行</span></td>
+      </tr>
+      <tr>
+        <td><strong>Prompt 构建</strong></td>
+        <td>f-string + 手动 messages (~20行)</td>
+        <td><code>ChatPromptTemplate</code> 声明式 (~6行)</td>
+        <td><span class="tag tag-green">~70%</span></td>
+      </tr>
+      <tr>
+        <td><strong>检索调用</strong></td>
+        <td><code>collection.query()</code> → 深层 dict 取值 (~15行)</td>
+        <td><code>retriever.invoke()</code> → <code>list[Document]</code></td>
+        <td><span class="tag tag-green">1行</span></td>
+      </tr>
+      <tr>
+        <td><strong>Pipeline 编排</strong></td>
+        <td>手写函数调用链 (~30行)</td>
+        <td>LCEL 管道 (~5行)</td>
+        <td><span class="tag tag-green">~83%</span></td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>最核心的一行代码</h3>
+    <div class="callout callout-tip">
+      <strong>这一行就是整个 RAG Pipeline：</strong>
+    </div>
+    <pre><code>rag_chain = (
+    {
+        <span style="color:var(--orange)">"context"</span>: retriever | format_docs,      <span style="color:var(--muted)">// 检索 + 格式化 → 注入 {context}</span>
+        <span style="color:var(--orange)">"question"</span>: RunnablePassthrough(),         <span style="color:var(--muted)">// 用户问题 → 注入 {question}</span>
+    }
+    | prompt                                     <span style="color:var(--muted)">// 填充模板变量</span>
+    | llm                                        <span style="color:var(--muted)">// 生成 AIMessage</span>
+    | StrOutputParser()                          <span style="color:var(--muted)">// 提取纯文本</span>
+)
+
+answer = rag_chain.invoke(<span style="color:var(--orange)">"公司年假多少天？"</span>)</code></pre>
+
+    <div class="callout callout-info" style="margin-top:12px;">
+      数据流一目了然：检索 → 格式化 → 注入 Prompt → LLM → 解析输出。<br>
+      声明式 = 描述"数据怎么流"，而不是"一步一步怎么做"。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>手工版 vs LangChain 版核心差异</h3>
+    <div class="grid-2">
+      <div class="demo-card">
+        <h4>手工版 step3_multi_pdf.py</h4>
+        <pre style="font-size:.8em;"><code><span style="color:var(--accent)">class</span> <span style="color:var(--green)">RecursiveChunker</span>:      <span style="color:var(--muted)">← 自己实现分块算法</span>
+    <span style="color:var(--accent)">def</span> <span style="color:var(--green)">_split_recursive</span>(...)
+    <span style="color:var(--accent)">def</span> <span style="color:var(--green)">_split_by_size</span>(...)
+
+<span style="color:var(--accent)">class</span> <span style="color:var(--green)">ChunkedRetriever</span>:       <span style="color:var(--muted)">← 自己管理 ChromaDB</span>
+    <span style="color:var(--accent)">def</span> <span style="color:var(--green)">_index_documents</span>(...)
+    <span style="color:var(--accent)">def</span> <span style="color:var(--green)">retrieve</span>(...):           <span style="color:var(--muted)">← 深层 dict 取值</span>
+        results[<span style="color:var(--orange)">"ids"</span>][0][i]
+
+<span style="color:var(--accent)">def</span> <span style="color:var(--green)">generate_answer</span>(query, docs): <span style="color:var(--muted)">← 手拼 f-string</span>
+    context = <span style="color:var(--green)">f"[文档{i}] ..."</span></code></pre>
+      </div>
+      <div class="demo-card">
+        <h4>LangChain 版 demo_08_rag_refactor.py</h4>
+        <pre style="font-size:.8em;"><code><span style="color:var(--muted)">// 分块：内置</span>
+splitter = <span style="color:var(--purple)">RecursiveCharacterTextSplitter</span>(
+    chunk_size=500, chunk_overlap=50)
+
+<span style="color:var(--muted)">// 向量化+存储：一行</span>
+vectorstore = <span style="color:var(--purple)">Chroma</span>.from_documents(
+    docs, embedding, collection_name=<span style="color:var(--orange)">"rag"</span>)
+
+<span style="color:var(--muted)">// 检索：统一接口</span>
+retriever = vectorstore.as_retriever(k=3)
+
+<span style="color:var(--muted)">// Pipeline：声明式</span>
+chain = (
+    {<span style="color:var(--orange)">"context"</span>: retriever|format,
+     <span style="color:var(--orange)">"question"</span>: Passthrough()}
+    | prompt | llm | parser)</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Tab 8: 生态全景
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-ecology">
+
+  <div class="card">
+    <h3>LangChain 生态全景图</h3>
+    <div class="runnable-diagram">
+      <div class="runnable-row" style="margin-bottom:12px;">
+        <span class="tag tag-blue" style="font-size:.9em;padding:8px 20px;">LangChain 生态</span>
+      </div>
+      <div class="runnable-row">
+        <div class="runnable-box blue" style="min-width:140px;">
+          <strong>langchain-core</strong>
+          <br><small>Runnable / Prompt / Parser<br>基础抽象</small>
+        </div>
+        <div class="runnable-box green" style="min-width:140px;">
+          <strong>langchain-openai</strong>
+          <br><small>ChatOpenAI<br>OpenAI 集成</small>
+        </div>
+        <div class="runnable-box purple" style="min-width:140px;">
+          <strong>langchain-community</strong>
+          <br><small>第三方集成<br>文档加载器/检索器</small>
+        </div>
+      </div>
+      <div class="runnable-row" style="margin-top:8px;">
+        <div class="runnable-box orange" style="min-width:140px;">
+          <strong>langchain-chroma</strong>
+          <br><small>ChromaDB 集成</small>
+        </div>
+        <div class="runnable-box cyan" style="min-width:140px;">
+          <strong>langchain-text-splitters</strong>
+          <br><small>文档分块</small>
+        </div>
+        <div class="runnable-box pink" style="min-width:140px;">
+          <strong>langgraph</strong>
+          <br><small>图编排 / Agent / 状态机</small>
+        </div>
+      </div>
+      <div class="runnable-row" style="margin-top:8px;">
+        <div class="runnable-box" style="border-color:var(--muted); min-width:300px;">
+          <strong>LangSmith</strong>
+          <br><small>调试 / 追踪 / 评估 / 监控（SaaS）</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>LangChain vs LangGraph：升级决策树</h3>
+    <div style="text-align:center; font-size:.9em; line-height:2.2; margin:16px 0;">
+      <div>
+        <span style="font-size:1.2em;">你的应用场景是？</span>
+      </div>
+      <div style="margin:12px 0;">
+        ┌──────────────────┬──────────────────────┬──────────────────┐
+      </div>
+      <div style="display:flex; gap:12px; text-align:center;">
+        <div style="flex:1;">
+          <span class="tag tag-orange">单次 LLM 调用</span><br>
+          ↓<br>
+          <strong>原生 openai 库</strong><br>
+          <small style="color:var(--muted);">简单问答、翻译</small>
+        </div>
+        <div style="flex:1;">
+          <span class="tag tag-green">复杂 Pipeline</span><br>
+          ↓<br>
+          <strong>LangChain LCEL</strong><br>
+          <small style="color:var(--muted);">RAG、多步骤处理</small>
+        </div>
+        <div style="flex:1;">
+          <span class="tag tag-purple">Agent / 状态机</span><br>
+          ↓<br>
+          <strong>LangGraph</strong><br>
+          <small style="color:var(--muted);">循环推理、人工审核</small>
+        </div>
+      </div>
+    </div>
+    <div class="callout callout-info">
+      <strong>LangChain 和 LangGraph 不是替代关系。</strong>LangChain 提供"积木块"（Prompt、LLM、Retriever...），LangGraph 提供"图纸"（循环、条件、状态图）。两者配合使用。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>8 个 Demo 的学习路线</h3>
+    <table>
+      <tr><th>顺序</th><th>Demo</th><th>核心概念</th><th>文件</th></tr>
+      <tr>
+        <td><span class="tag tag-blue">1</span></td>
+        <td>LLM 抽象</td>
+        <td>ChatOpenAI 统一接口、流式输出</td>
+        <td><code>demo_01_llm.py</code></td>
+      </tr>
+      <tr>
+        <td><span class="tag tag-blue">2</span></td>
+        <td>PromptTemplate</td>
+        <td>模板变量分离、Few-shot</td>
+        <td><code>demo_02_prompt_template.py</code></td>
+      </tr>
+      <tr>
+        <td><span class="tag tag-purple">3</span></td>
+        <td>OutputParser</td>
+        <td>Str/Json/Pydantic 解析、自动纠错</td>
+        <td><code>demo_03_output_parser.py</code></td>
+      </tr>
+      <tr>
+        <td><span class="tag tag-purple">4</span></td>
+        <td>Tool</td>
+        <td>@tool 装饰器、多工具链式调用</td>
+        <td><code>demo_04_tool.py</code></td>
+      </tr>
+      <tr>
+        <td><span class="tag tag-orange">5</span></td>
+        <td>Retriever</td>
+        <td>统一检索接口、元数据过滤</td>
+        <td><code>demo_05_retriever.py</code></td>
+      </tr>
+      <tr>
+        <td><span class="tag tag-orange">6</span></td>
+        <td>Chain</td>
+        <td>LCEL | 管道、声明式数据流</td>
+        <td><code>demo_06_chain.py</code></td>
+      </tr>
+      <tr>
+        <td><span class="tag tag-green">7</span></td>
+        <td>Runnable</td>
+        <td>Passthrough/Parallel/Lambda 组合</td>
+        <td><code>demo_07_runnable.py</code></td>
+      </tr>
+      <tr>
+        <td><span class="tag tag-green">8</span></td>
+        <td>RAG 重构</td>
+        <td>手写版 vs LangChain 版 完整对比</td>
+        <td><code>demo_08_rag_refactor.py</code></td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>核心收获</h3>
+    <div class="grid-2">
+      <div>
+        <h4>LangChain 做了什么？</h4>
+        <ul style="padding-left:20px;color:var(--muted);font-size:.9em;line-height:2;">
+          <li>把 Prompt 拼接 → <strong>数据结构化</strong></li>
+          <li>把输出解析 → <strong>自动化 + 类型安全</strong></li>
+          <li>把 Tool Calling → <strong>装饰器化</strong></li>
+          <li>把检索接口 → <strong>统一抽象化</strong></li>
+          <li>把流程编排 → <strong>声明式化</strong></li>
+        </ul>
+      </div>
+      <div>
+        <h4>LangChain 没做什么？</h4>
+        <ul style="padding-left:20px;color:var(--muted);font-size:.9em;line-height:2;">
+          <li>没有增加新能力（LLM 能做的还是那些）</li>
+          <li>没有提高 LLM 本身的精度</li>
+          <li>没有减少 Token 消耗（反而可能更多）</li>
+          <li>不能替代你对 Prompt 的理解</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout callout-tip">
+      <strong>核心原则：</strong>LangChain 是为了消除重复代码，让 Pipeline 可读、可测、可维护。<br>
+      不是为了"酷"而用 —— 简单场景直接用原生 API 即可。
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>
