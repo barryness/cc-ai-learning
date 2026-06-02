@@ -8,12 +8,21 @@
   2. 向量语义搜索如何工作
   3. ChromaDB 的基本操作（增、查、过滤）
 
-运行方式：
-  uv venv --python 3.12 && source .venv/bin/activate
-  pip install chromadb torch transformers
+运行方式（首次使用需先搭建环境）：
+  # 1. 安装 Python 3.12（如果还没有）
+  uv python install 3.12
+
+  # 2. 创建虚拟环境
+  uv venv --python 3.12
+
+  # 3. 激活环境 + 安装依赖
+  source .venv/bin/activate
+  pip install -r requirements.txt
+
+  # 4. 运行
   python vector_db_demo.py
 
-Embedding 引擎：bert-base-chinese（768 维，本地缓存加载，无需联网）
+Embedding 引擎：bert-base-chinese（768 维，首次运行自动缓存到 ~/.cache/huggingface/）
 """
 
 import numpy as np
