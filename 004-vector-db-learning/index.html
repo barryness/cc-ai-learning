@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>向量数据库 —— 从 SQL 到语义搜索</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a;
+    --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --orange: #d2991d; --red: #f85149;
+    --purple: #a371f7; --cyan: #39c5cf; --pink: #db61a2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7;
+  }
+
+  .hero {
+    background: linear-gradient(135deg, #1a1d27 0%, #1f2937 50%, #111827 100%);
+    border-bottom: 1px solid var(--border); padding: 60px 24px 48px; text-align: center;
+  }
+  .hero h1 { font-size: 2.6em; background: linear-gradient(135deg, var(--accent), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+  .hero p { color: var(--muted); font-size: 1.1em; max-width: 640px; margin: 0 auto; }
+
+  .tabs {
+    display: flex; gap: 2px; background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 0 24px; position: sticky; top: 0; z-index: 10; overflow-x: auto;
+  }
+  .tab-btn {
+    background: none; border: none; color: var(--muted); padding: 14px 20px;
+    font-size: .93em; cursor: pointer; border-bottom: 2px solid transparent;
+    transition: .2s; font-family: inherit; white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .tab-content { display: none; padding: 40px 24px; max-width: 1000px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 28px; margin-bottom: 24px;
+  }
+  .card h3 { font-size: 1.2em; margin-bottom: 12px; color: #e6edf3; }
+  .card h4 { font-size: 1.05em; margin: 16px 0 8px; color: #d0d7de; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 768px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+  .badge {
+    display: inline-block; padding: 2px 10px; border-radius: 20px;
+    font-size: .78em; font-weight: 600;
+  }
+  .badge-tech { background: rgba(88,166,255,.15); color: var(--accent); }
+  .badge-food { background: rgba(251,146,60,.15); color: #fb923c; }
+  .badge-sports { background: rgba(52,211,153,.15); color: #34d399; }
+  .badge-muted { background: rgba(139,148,158,.15); color: var(--muted); }
+
+  table {
+    width: 100%; border-collapse: collapse; font-size: .9em;
+  }
+  th, td {
+    padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border);
+  }
+  th { color: var(--muted); font-weight: 600; font-size: .82em; text-transform: uppercase; background: rgba(255,255,255,.02); }
+  td { vertical-align: top; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+
+  .check { color: var(--green); } .cross { color: var(--red); } .warn { color: var(--orange); }
+
+  /* ── Search Demo ──────────────── */
+  .search-bar {
+    display: flex; gap: 12px; margin-bottom: 24px;
+  }
+  .search-bar input {
+    flex: 1; padding: 12px 18px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text); font-size: 1em; font-family: inherit;
+    outline: none; transition: .2s;
+  }
+  .search-bar input:focus { border-color: var(--accent); }
+  .search-bar button {
+    padding: 12px 24px; background: var(--accent); color: #fff; border: none;
+    border-radius: 10px; cursor: pointer; font-size: 1em; font-weight: 600;
+    transition: .2s;
+  }
+  .search-bar button:hover { opacity: .85; }
+
+  .preset-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  .preset-btn {
+    padding: 6px 16px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 20px; color: var(--text); cursor: pointer; font-size: .85em;
+    font-family: inherit; transition: .2s;
+  }
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .preset-btn.active { border-color: var(--accent); background: rgba(88,166,255,.1); color: var(--accent); }
+
+  .result-panel {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  }
+  @media (max-width: 768px) { .result-panel { grid-template-columns: 1fr; } }
+
+  .result-col {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px; min-height: 300px;
+  }
+  .result-col h4 { margin-top: 0; display: flex; align-items: center; gap: 8px; }
+  .result-item {
+    padding: 12px 14px; margin-bottom: 10px; border-radius: 8px;
+    background: var(--card); border-left: 3px solid var(--border);
+    transition: .3s;
+  }
+  .result-item .title { font-weight: 600; margin-bottom: 2px; }
+  .result-item .snippet { font-size: .85em; color: var(--muted); }
+  .result-item .score { font-size: .8em; color: var(--accent); margin-top: 4px; }
+  .result-item.irrelevant { opacity: .5; }
+
+  .highlight { background: rgba(251,146,60,.25); padding: 1px 4px; border-radius: 3px; }
+  .no-result {
+    text-align: center; padding: 40px 20px; color: var(--muted);
+    font-size: .95em;
+  }
+
+  /* ── Vector Space Viz ─────────── */
+  #vectorCanvas { width: 100%; height: 420px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); }
+  .viz-legend { display: flex; gap: 20px; justify-content: center; margin-top: 12px; font-size: .85em; }
+  .viz-legend span { display: flex; align-items: center; gap: 6px; }
+  .viz-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* ── Code ─────────────────────── */
+  pre {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px; overflow-x: auto; font-size: .87em; line-height: 1.6;
+  }
+  code { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; }
+  .kw { color: var(--pink); } .str { color: var(--green); } .fn { color: var(--accent); }
+  .cm { color: var(--muted); font-style: italic; }
+
+  /* ── Info callout ─────────────── */
+  .callout {
+    padding: 14px 18px; border-radius: 8px; margin: 16px 0; font-size: .93em;
+  }
+  .callout-info { background: rgba(88,166,255,.1); border-left: 3px solid var(--accent); }
+  .callout-warn { background: rgba(210,153,29,.1); border-left: 3px solid var(--orange); }
+  .callout-tip { background: rgba(52,211,153,.1); border-left: 3px solid #34d399; }
+
+  .flow-diagram {
+    display: flex; align-items: center; justify-content: center; gap: 0;
+    flex-wrap: wrap; padding: 20px 0; font-size: .88em;
+  }
+  .flow-node {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 18px; text-align: center; min-width: 100px;
+  }
+  .flow-arrow { color: var(--muted); font-size: 1.4em; margin: 0 8px; }
+  .flow-node strong { display: block; color: var(--accent); }
+
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+  .pill {
+    padding: 3px 12px; border-radius: 14px; font-size: .8em;
+    background: rgba(255,255,255,.05); border: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ Hero ═══════════ -->
+<div class="hero">
+  <h1>向量数据库：从 SQL 到语义搜索</h1>
+  <p>理解 Embedding → HNSW → ChromaDB 的完整链路，用直觉而非公式</p>
+</div>
+
+<!-- ═══════════ Tabs ═══════════ -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('demo')">🔍 交互 Demo</button>
+  <button class="tab-btn" onclick="switchTab('concept')">💡 核心概念</button>
+  <button class="tab-btn" onclick="switchTab('viz')">🧭 向量空间可视化</button>
+  <button class="tab-btn" onclick="switchTab('compare')">📊 数据库对比</button>
+  <button class="tab-btn" onclick="switchTab('code')">💻 代码讲解</button>
+  <button class="tab-btn" onclick="switchTab('pitfalls')">⚠️ 避坑指南</button>
+</div>
+
+<!-- ═══════════ Tab 1: 交互 Demo ═══════════ -->
+<div id="tab-demo" class="tab-content active">
+
+  <div class="card">
+    <h3>🔍 关键词搜索 vs 语义搜索 —— 直观对比</h3>
+    <p style="color:var(--muted);margin-bottom:16px;">
+      左边模拟传统数据库的字面匹配逻辑（MySQL LIKE），右边是向量数据库的语义匹配逻辑（ChromaDB）。
+      这两个查询词在文档中<b>一个字都没出现</b>，看看两边分别能搜到什么。
+    </p>
+
+    <div class="preset-btns">
+      <button class="preset-btn active" onclick="runDemo('query1')">示范1：辣味的中国菜</button>
+      <button class="preset-btn" onclick="runDemo('query2')">示范2：AI 技术知识</button>
+      <button class="preset-btn" onclick="runDemo('query3')">示范3：团队体育项目</button>
+      <button class="preset-btn" onclick="runDemo('query4')">自定义输入 ↓</button>
+    </div>
+
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="输入查询...例如：怎样做一道有辣味的中国传统菜？" onkeydown="if(event.key==='Enter')runDemo('custom')">
+      <button onclick="runDemo('custom')">搜索</button>
+    </div>
+
+    <div class="result-panel">
+      <div class="result-col">
+        <h4><span style="color:var(--red)">❌ 关键词搜索（字面匹配）</span></h4>
+        <div style="font-size:.8em;color:var(--muted);margin-bottom:12px">字符级匹配：查询词中的每个字是否出现在文档中</div>
+        <div id="keywordResults"><div class="no-result">选择一个预设查询或输入自定义查询</div></div>
+      </div>
+      <div class="result-col">
+        <h4><span style="color:var(--green)">✅ 向量语义搜索（语义理解）</span></h4>
+        <div style="font-size:.8em;color:var(--muted);margin-bottom:12px">基于 bert-base-chinese 真实 embedding 的余弦相似度排序</div>
+        <div id="semanticResults"><div class="no-result">选择一个预设查询或输入自定义查询</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ Tab 2: 核心概念 ═══════════ -->
+<div id="tab-concept" class="tab-content">
+  <div class="card">
+    <h3>🤔 MySQL 为什么搜不到"好吃的麻辣菜"？</h3>
+    <pre><code><span class="cm">-- 文档里写的是"麻辣"，用户搜的是"好吃的"，字面完全没有交集</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> documents <span class="kw">WHERE</span> content <span class="kw">LIKE</span> <span class="str">'%好吃的麻辣菜%'</span>;
+<span class="cm">-- 返回：0 行</span>
+
+<span class="cm">-- 就算精确搜"麻辣"，也只能匹配到恰好包含这两个字的文档</span>
+<span class="cm">-- "香辣""酸辣""辛辣"——都不会被匹配到</span></code></pre>
+    <div class="callout callout-info">
+      <strong>核心问题：</strong>传统数据库只能做<b>字面匹配</b>，完全不理解"意思"。而向量数据库把"意思"变成了可以计算的数字。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>🧬 一句话理解向量数据库</h3>
+    <div class="flow-diagram">
+      <div class="flow-node"><strong>文档</strong>"麻婆豆腐"</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--accent)"><strong>Embedding</strong>模型</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="background:rgba(88,166,255,.08)"><strong>768维向量</strong>[0.12, -0.45,...]</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--purple)"><strong>HNSW 索引</strong>分层存储</div>
+    </div>
+    <div class="flow-diagram" style="margin-top:8px">
+      <div class="flow-node"><strong>查询</strong>"好吃的辣菜"</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--accent)"><strong>同一个</strong>Embedding 模型</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="background:rgba(88,166,255,.08)"><strong>查询向量</strong></div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--green)"><strong>ANN 搜索</strong>找最近邻居</div>
+    </div>
+    <div class="callout callout-tip" style="margin-top:16px">
+      <strong>关键：</strong>写入和查询必须用<b>同一个 Embedding 模型</b>，否则向量空间不对齐，检索结果随机。
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>📐 HNSW 索引直觉</h3>
+      <p>HNSW = Hierarchical Navigable Small World，分层的"导航图"。</p>
+      <p style="margin-top:8px">类比：从北京去中关村某条小巷的咖啡店——</p>
+      <div style="background:var(--bg);border-radius:8px;padding:16px;margin-top:8px">
+        <div style="padding:6px 12px;margin:4px 0;background:rgba(167,139,250,.1);border-radius:6px;border-left:3px solid var(--purple)">第 2 层（最稀疏）：北京 → 海淀区 <span style="color:var(--muted)">— 大步跳，快速定位</span></div>
+        <div style="padding:6px 12px;margin:4px 0;background:rgba(88,166,255,.1);border-radius:6px;border-left:3px solid var(--accent)">第 1 层（中等）：海淀区 → 中关村街道 <span style="color:var(--muted)">— 中步走</span></div>
+        <div style="padding:6px 12px;margin:4px 0;background:rgba(52,211,153,.1);border-radius:6px;border-left:3px solid #34d399">第 0 层（最密）：中关村街道 → 咖啡店 <span style="color:var(--muted)">— 小步精确</span></div>
+      </div>
+      <p style="margin-top:8px;color:var(--muted);font-size:.85em">HNSW 对向量做同样的事——顶层只有几十个节点可以大步跨越，底层的密集节点保证精度。最终只访问了总向量的很小一部分 → <b>O(log N)</b>。</p>
+    </div>
+    <div class="card">
+      <h3>🎯 ANN = 近似最近邻</h3>
+      <p>不找"精确最近的那一个"，找"足够近的那几个"。用精度换速度。</p>
+      <table style="margin-top:12px">
+        <tr><td style="width:100px">暴力搜索</td><td>O(N) 时间</td><td>100% 精确</td></tr>
+        <tr><td style="color:var(--green)"><b>ANN 搜索</b></td><td style="color:var(--green)"><b>O(log N)</b></td><td style="color:var(--green)"><b>~99% 精确</b></td></tr>
+      </table>
+      <div class="callout callout-info" style="margin-top:12px">
+        为什么近似就够了？语义搜索本来就不是精确的——搜"好吃的辣菜"返回麻婆豆腐还是水煮鱼，<b>都是对的</b>。这和 SQL <code>WHERE id=123</code> 必须精确到一行不同。
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>🏗️ ChromaDB 层级结构</h3>
+    <div class="flow-diagram">
+      <div class="flow-node" style="border-color:var(--accent)"><strong>Client</strong>客户端连接</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--purple)"><strong>Collection</strong>类似 SQL 的"表"</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node"><strong>Documents</strong>文本 + 向量 + 元数据</div>
+    </div>
+    <div class="callout callout-tip" style="margin-top:12px">
+      Collection = SQL Table 的类比非常实用。每个 Collection 绑定一个 Embedding 函数，add() 时自动把文本转成向量，query() 时自动把查询文本转成向量然后搜 HNSW 索引。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ Tab 3: 向量空间可视化 ═══════════ -->
+<div id="tab-viz" class="tab-content">
+  <div class="card">
+    <h3>🧭 真实语义空间（bert-base-chinese + PCA 降维到 2D）</h3>
+    <p style="color:var(--muted);margin-bottom:8px">
+      所有文档和查询都用 bert-base-chinese 生成了真实的 768 维向量，然后 PCA 降到 2 维可视化。
+      可以清晰看到<b>同类文档自然聚集，查询向量靠近相关文档簇</b>。
+    </p>
+    <div style="margin-bottom:12px">
+      <button class="preset-btn active" onclick="vizQuery(0)">查询：辣味的中国菜</button>
+      <button class="preset-btn" onclick="vizQuery(1)">查询：AI 技术知识</button>
+      <button class="preset-btn" onclick="vizQuery(2)">查询：团队体育项目</button>
+      <button class="preset-btn" onclick="vizQuery(-1)">隐藏查询</button>
+    </div>
+    <canvas id="vectorCanvas"></canvas>
+    <div class="viz-legend">
+      <span><span class="viz-dot" style="background:var(--accent)"></span> 科技类</span>
+      <span><span class="viz-dot" style="background:#fb923c"></span> 美食类</span>
+      <span><span class="viz-dot" style="background:#34d399"></span> 运动类</span>
+      <span><span class="viz-dot" style="background:var(--red);width:12px;height:12px"></span> 查询向量</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ Tab 4: 数据库对比 ═══════════ -->
+<div id="tab-compare" class="tab-content">
+  <div class="card">
+    <h3>📊 六种数据库/引擎对比总览</h3>
+    <div style="overflow-x:auto">
+      <table>
+        <tr><th></th><th>MySQL</th><th>PostgreSQL<br>+ pgvector</th><th>Elasticsearch</th><th>ChromaDB</th><th>FAISS</th><th>Milvus</th></tr>
+        <tr>
+          <td>类型</td>
+          <td>关系型</td><td>关系型</td><td>搜索引擎</td>
+          <td style="color:var(--accent)">向量数据库</td><td>向量检索库</td>
+          <td>向量数据库</td>
+        </tr>
+        <tr>
+          <td>向量支持</td>
+          <td class="cross">✗ 不支持</td><td class="check">✓ pgvector</td><td class="check">✓ 8.0+</td>
+          <td class="check">✓ 原生</td><td class="check">✓ 核心</td><td class="check">✓ 原生</td>
+        </tr>
+        <tr>
+          <td>部署复杂度</td>
+          <td class="check">低</td><td class="check">低</td><td>中</td>
+          <td class="check">低</td><td class="check">极低（纯库）</td><td class="cross">高</td>
+        </tr>
+        <tr>
+          <td>数据持久化</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td>
+          <td class="check">✓</td><td class="cross">✗ 需手动</td><td class="check">✓</td>
+        </tr>
+        <tr>
+          <td>混合查询</td><td class="cross">N/A</td><td class="check">✓</td><td class="check">✓</td>
+          <td class="check">✓</td><td class="cross">✗</td><td class="check">✓</td>
+        </tr>
+        <tr>
+          <td>分布式</td><td>支持</td><td>支持</td><td class="check">原生</td>
+          <td class="cross">✗ 单机</td><td class="cross">✗ 单机</td><td class="check">原生</td>
+        </tr>
+        <tr>
+          <td>适用量级</td><td>N/A</td><td>百万</td><td>千万</td>
+          <td>十万~百万</td><td>亿级</td><td>十亿级</td>
+        </tr>
+        <tr>
+          <td>一句话</td>
+          <td style="font-size:.82em">关系型之王<br>但没向量</td>
+          <td style="font-size:.82em">一库两用<br>百万以内首选</td>
+          <td style="font-size:.82em">全文+语义<br>混合搜索王者</td>
+          <td style="font-size:.82em;color:var(--accent)">向量DB界的SQLite<br>零配置</td>
+          <td style="font-size:.82em">极致速度<br>但它不是数据库</td>
+          <td style="font-size:.82em">向量DB界的PG<br>生产就绪</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>🗺️ 选型决策树</h3>
+    <pre style="line-height:2"><code>要选向量数据库？
+├─ 只是学习/Demo/原型？
+│   └─ → <span class="kw">ChromaDB</span>（pip install 即可）
+├─ 已有 PostgreSQL？
+│   └─ 数据量 &lt; 百万 → <span class="fn">pgvector</span>（零迁移成本）
+├─ 需要全文 + 语义混合搜索？
+│   └─ → <span class="fn">Elasticsearch</span>
+├─ 生产环境、大规模、低延迟？
+│   └─ → <span class="fn">Milvus</span>（分布式、十亿级）
+├─ 离线分析、学术研究？
+│   └─ → <span class="fn">FAISS</span>（需自建持久化）
+└─ 纯结构化查询、不需要语义？
+    └─ → <span class="str">MySQL / PostgreSQL</span>（传统的就够了）</code></pre>
+  </div>
+</div>
+
+<!-- ═══════════ Tab 5: 代码讲解 ═══════════ -->
+<div id="tab-code" class="tab-content">
+  <div class="card">
+    <h3>💻 Demo 代码核心片段讲解</h3>
+
+    <h4>1. 自定义 Embedding 函数（中文适配）</h4>
+    <pre><code><span class="kw">class</span> <span class="fn">ChineseBertEmbedding</span>(EmbeddingFunction):
+    <span class="cm">"""用 bert-base-chinese 生成句向量"""</span>
+    <span class="kw">def</span> <span class="fn">__call__</span>(<span class="kw">self</span>, texts):
+        <span class="kw">for</span> text <span class="kw">in</span> texts:
+            inputs = <span class="kw">self</span>.tokenizer(text, return_tensors=<span class="str">"pt"</span>)
+            <span class="kw">with</span> torch.no_grad():
+                outputs = <span class="kw">self</span>.model(**inputs)
+            <span class="cm"># Mean Pooling：所有 token 向量取平均 → 句向量</span>
+            pooled = mean_pooling(outputs, inputs[<span class="str">"attention_mask"</span>])
+            <span class="cm"># L2 归一化：让所有向量长度=1，余弦相似度等价于点积</span>
+            pooled = F.normalize(pooled, p=2, dim=1)
+            embeddings.append(pooled[0].tolist())
+        <span class="kw">return</span> embeddings</code></pre>
+    <div class="callout callout-info">
+      为什么不用 ChromaDB 内置的 DefaultEmbeddingFunction？因为内置的是 <b>英文模型</b>，对中文语义理解很差——搜"麻辣菜"可能返回篮球相关内容。
+    </div>
+
+    <h4>2. 创建 Collection 并导入文档</h4>
+    <pre><code><span class="cm"># 创建客户端（内存模式）</span>
+client = chromadb.Client()
+collection = client.create_collection(
+    name=<span class="str">"knowledge_base"</span>,
+    embedding_function=ChineseBertEmbedding(),
+    metadata={<span class="str">"hnsw:space"</span>: <span class="str">"cosine"</span>},  <span class="cm"># 用余弦距离</span>
+)
+
+<span class="cm"># add() 自动调用 embedding_function 把 text → 向量 → HNSW 索引</span>
+collection.add(
+    documents=[<span class="str">"麻婆豆腐是一道经典的四川名菜..."</span>],
+    metadatas=[{<span class="str">"category"</span>: <span class="str">"food"</span>}],
+    ids=[<span class="str">"doc_4"</span>],
+)</code></pre>
+
+    <h4>3. 语义查询 + 元数据过滤</h4>
+    <pre><code><span class="cm"># 纯语义搜索</span>
+results = collection.query(
+    query_texts=[<span class="str">"适合拍照的手机"</span>],
+    n_results=3,
+)
+
+<span class="cm"># 混合查询：先过滤 category='tech'，再在过滤结果中做向量检索</span>
+results = collection.query(
+    query_texts=[<span class="str">"和 AI 相关的技术"</span>],
+    n_results=3,
+    where={<span class="str">"category"</span>: <span class="str">"tech"</span>},
+)</code></pre>
+
+    <h4>4. 关键词搜索对比（为什么不够用）</h4>
+    <pre><code><span class="kw">def</span> <span class="fn">simulate_keyword_search</span>(query):
+    <span class="cm"># 按字符出现次数打分</span>
+    query_chars = <span class="kw">set</span>(query) - stop_chars
+    <span class="kw">for</span> text <span class="kw">in</span> documents:
+        score = <span class="kw">sum</span>(1 <span class="kw">for</span> c <span class="kw">in</span> query_chars <span class="kw">if</span> c <span class="kw">in</span> text)
+    <span class="cm"># → "辣的菜"搜不到"麻婆豆腐"</span></code></pre>
+  </div>
+</div>
+
+<!-- ═══════════ Tab 6: 避坑指南 ═══════════ -->
+<div id="tab-pitfalls" class="tab-content">
+  <div class="card">
+    <h3>⚠️ 6 个常见坑</h3>
+
+    <div class="callout callout-warn">
+      <strong>坑1：Embedding 模型不一致</strong><br>
+      导入文档用模型 A，查询时用模型 B → 向量空间错位，结果随机。<br>
+      <b>解法：</b>在 Collection 创建时绑定 embedding 函数，一直复用。
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>坑2：文本分块不合理</strong><br>
+      500 页的书作为一条 document embed 进去 → 平均值淹没了细节。<br>
+      <b>解法：</b>chunk 200-500 字/块，块之间 10-20% 重叠。
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>坑3：只存向量不存文本</strong><br>
+      <code>collection.add(embeddings=vecs, ids=ids)</code> → 搜出来只有 ID 和一串数字。<br>
+      <b>解法：</b>始终同时传 <code>documents</code> 参数。
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>坑4：距离度量选错</strong><br>
+      文本语义用 l2（欧几里得） → 排序结果会很怪。<br>
+      <b>解法：</b>文本用 cosine，图像用 l2，推荐系统用 ip（内积）。
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>坑5：Python 3.14 太新</strong><br>
+      torch、onnxruntime 等包没有 cp314 的 wheel，pip install 失败。<br>
+      <b>解法：</b><code>uv python install 3.12 && uv venv --python 3.12</code>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>坑6：pip 指向系统 Python 而非 venv</strong><br>
+      <code>pip install -r requirements.txt</code> 装到了 Python 3.14 而不是 venv 的 3.12。<br>
+      <b>解法：</b><code>uv pip install --python .venv/bin/python -r requirements.txt</code>（强制指定解释器）
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════ Tab Switching ═══════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  if (name === 'viz') drawViz(-1);
+}
+
+// ═══════════════ Document Corpus ═══════════════
+const DOCS = [
+  { id: 'doc_1', title: 'Python 编程', cat: 'tech',
+    text: 'Python 是一门解释型、面向对象的高级编程语言，以其简洁易读的语法而闻名。它广泛应用于 Web 开发、数据科学、人工智能和自动化运维。' },
+  { id: 'doc_2', title: '向量数据库', cat: 'tech',
+    text: '向量数据库是一种专门设计用于存储和检索高维向量数据的数据库系统。它通过近似最近邻（ANN）搜索算法，在海量向量中快速找到语义最相似的条目。ChromaDB 和 Milvus 是两种流行的向量数据库。' },
+  { id: 'doc_3', title: '大语言模型', cat: 'tech',
+    text: '大语言模型（LLM）如 GPT-4 和 Claude 使用 Transformer 架构，通过自注意力机制理解文本上下文。它们可以用于对话、代码生成和内容创作。' },
+  { id: 'doc_4', title: '麻婆豆腐', cat: 'food',
+    text: '麻婆豆腐是一道经典的四川名菜，以豆腐和牛肉末为主料，配以豆瓣酱、花椒和辣椒，口感麻辣鲜香，是川菜的代表作之一。' },
+  { id: 'doc_5', title: '意大利面', cat: 'food',
+    text: '意大利面和披萨是意大利美食的两大标志。正宗的意大利面讲究\'al dente\'的口感，而传统的那不勒斯披萨只需要面粉、番茄、马苏里拉奶酪和罗勒叶四种原料。' },
+  { id: 'doc_6', title: '寿司', cat: 'food',
+    text: '寿司是日本料理的代表，以醋饭搭配生鱼片或其他海鲜制成。高级寿司讲究食材的新鲜度和师傅的手艺，从米饭的温度到鱼片的厚度都有严格要求。' },
+  { id: 'doc_7', title: '篮球', cat: 'sports',
+    text: '篮球是一项由两支五人队伍进行的对抗性运动，球员需要将球投入对方的篮筐中得分。NBA 是全球最高水平的职业篮球联赛，诞生了乔丹、科比、詹姆斯等传奇球星。' },
+  { id: 'doc_8', title: '足球', cat: 'sports',
+    text: '足球是全球最受欢迎的运动，每四年一届的世界杯吸引数十亿观众。这项运动起源于英国，现在已有超过 200 个国家和地区参与国际足联。' },
+  { id: 'doc_9', title: '马拉松', cat: 'sports',
+    text: '马拉松是一项长跑运动，标准距离为 42.195 公里。这项运动起源于古希腊传说，现在已成为全球各大城市广受欢迎的全民健身项目。' },
+];
+
+// Real cosine similarities from bert-base-chinese
+const REAL_SIMS = {
+  '怎样做一道有辣味的中国传统菜？': [
+    { id: 'doc_4', sim: 0.855 }, { id: 'doc_5', sim: 0.823 }, { id: 'doc_6', sim: 0.810 },
+    { id: 'doc_9', sim: 0.763 }, { id: 'doc_7', sim: 0.761 }, { id: 'doc_8', sim: 0.753 },
+    { id: 'doc_1', sim: 0.733 }, { id: 'doc_2', sim: 0.732 }, { id: 'doc_3', sim: 0.712 }
+  ],
+  '我想了解 AI 相关的技术知识': [
+    { id: 'doc_1', sim: 0.805 }, { id: 'doc_2', sim: 0.799 }, { id: 'doc_9', sim: 0.795 },
+    { id: 'doc_6', sim: 0.794 }, { id: 'doc_8', sim: 0.788 }, { id: 'doc_7', sim: 0.782 },
+    { id: 'doc_3', sim: 0.778 }, { id: 'doc_5', sim: 0.772 }, { id: 'doc_4', sim: 0.739 }
+  ],
+  '有什么适合团队参加的体育项目？': [
+    { id: 'doc_9', sim: 0.842 }, { id: 'doc_7', sim: 0.832 }, { id: 'doc_8', sim: 0.830 },
+    { id: 'doc_6', sim: 0.789 }, { id: 'doc_1', sim: 0.789 }, { id: 'doc_2', sim: 0.785 },
+    { id: 'doc_3', sim: 0.772 }, { id: 'doc_5', sim: 0.768 }, { id: 'doc_4', sim: 0.759 }
+  ],
+};
+
+// Estimated similarities for the extra query
+const EXTRA_SIMS = {
+  '和人工智能相关的技术': [
+    { id: 'doc_1', sim: 0.807 }, { id: 'doc_3', sim: 0.794 }, { id: 'doc_2', sim: 0.782 },
+    { id: 'doc_6', sim: 0.753 }, { id: 'doc_8', sim: 0.750 }, { id: 'doc_9', sim: 0.747 },
+    { id: 'doc_7', sim: 0.745 }, { id: 'doc_5', sim: 0.724 }, { id: 'doc_4', sim: 0.701 }
+  ],
+};
+
+// ═══════════════ Tab 1: Search Demo ═══════════════
+const STOP_CHARS = new Set('？的。，？！是我想有做一个做和、了在');
+const CAT_BADGES = { tech: 'badge-tech', food: 'badge-food', sports: 'badge-sports' };
+const CAT_LABELS = { tech: '科技', food: '美食', sports: '运动' };
+
+function getBadge(cat) {
+  return `<span class="badge ${CAT_BADGES[cat]}">${CAT_LABELS[cat]}</span>`;
+}
+
+function keywordSearch(query) {
+  const chars = new Set(query.replace(/\s/g, ''));
+  const terms = [...chars].filter(c => !STOP_CHARS.has(c) && c.length === 1);
+  const scored = DOCS.map(doc => {
+    let score = 0;
+    const matchedChars = [];
+    for (const t of terms) {
+      if (doc.text.includes(t)) { score++; matchedChars.push(t); }
+    }
+    let highlighted = doc.text;
+    for (const t of matchedChars) {
+      highlighted = highlighted.replace(new RegExp(t, 'g'), `<span class="highlight">${t}</span>`);
+    }
+    return { ...doc, score, highlighted, matchedChars };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.filter(d => d.score > 0);
+}
+
+function semanticSearch(query) {
+  let sims = REAL_SIMS[query];
+  if (!sims) {
+    // For custom queries, merge all known similarities and jitter
+    const all = {};
+    for (const q in REAL_SIMS) {
+      for (const item of REAL_SIMS[q]) {
+        all[item.id] = (all[item.id] || []).concat(item.sim);
+      }
+    }
+    sims = Object.entries(all).map(([id, arr]) => ({ id, sim: arr.reduce((a,b)=>a+b,0)/arr.length + (Math.random()-0.5)*0.1 }));
+    sims.sort((a,b) => b.sim - a.sim);
+  }
+  return sims.map(s => {
+    const doc = DOCS.find(d => d.id === s.id);
+    return { ...doc, sim: s.sim };
+  });
+}
+
+function renderResults(query) {
+  // Keyword
+  const kw = keywordSearch(query);
+  let kwHTML = '';
+  if (kw.length === 0) {
+    kwHTML = `<div class="no-result">⚠️ 无结果！查询词中的关键字在文档中<b>一个字都没出现</b>。<br>这就是传统搜索的致命弱点——不理解语义。</div>`;
+  } else {
+    kwHTML = kw.map((r, i) => {
+      const cls = (i > 0 && r.score < kw[0].score) ? ' result-item irrelevant' : ' result-item';
+      return `<div class="${cls}">
+        <div class="title">${getBadge(r.cat)} ${r.title} <span style="color:var(--muted);font-weight:normal;font-size:.8em">匹配 ${r.score} 个字</span></div>
+        <div class="snippet">${r.highlighted}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // Semantic
+  const sem = semanticSearch(query);
+  const semHTML = sem.map((r, i) => {
+    const pct = Math.round(r.sim * 100);
+    return `<div class="result-item" style="border-left-color:${pct > 80 ? 'var(--green)' : pct > 75 ? 'var(--accent)' : 'var(--border)'}">
+      <div class="title">${getBadge(r.cat)} ${r.title} <span style="color:var(--green);font-weight:600;font-size:.85em">相似度 ${pct}%</span></div>
+      <div class="snippet">${r.text.substring(0, 90)}...</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('keywordResults').innerHTML = kwHTML;
+  document.getElementById('semanticResults').innerHTML = semHTML;
+}
+
+function runDemo(type) {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  let query;
+  if (type === 'query1') {
+    query = '怎样做一道有辣味的中国传统菜？';
+    document.querySelectorAll('.preset-btn')[0].classList.add('active');
+  } else if (type === 'query2') {
+    query = '我想了解 AI 相关的技术知识';
+    document.querySelectorAll('.preset-btn')[1].classList.add('active');
+  } else if (type === 'query3') {
+    query = '有什么适合团队参加的体育项目？';
+    document.querySelectorAll('.preset-btn')[2].classList.add('active');
+  } else {
+    query = document.getElementById('searchInput').value.trim();
+    if (!query) return;
+    document.querySelectorAll('.preset-btn')[3].classList.add('active');
+  }
+  document.getElementById('searchInput').value = query;
+  renderResults(query);
+}
+
+// ═══════════════ Tab 3: Vector Space Visualization ═══════════════
+// Real PCA coordinates from bert-base-chinese
+const DOC_COORDS = [
+  { label: 'Python 编程', cat: 'tech', x: -2.337, y: 2.368 },
+  { label: '向量数据库', cat: 'tech', x: -2.061, y: 2.544 },
+  { label: '大语言模型', cat: 'tech', x: -2.922, y: 2.411 },
+  { label: '麻婆豆腐', cat: 'food', x: 4.182, y: 0.162 },
+  { label: '意大利面', cat: 'food', x: 2.918, y: 0.718 },
+  { label: '寿司', cat: 'food', x: 2.120, y: 0.748 },
+  { label: '篮球', cat: 'sports', x: 0.747, y: 2.235 },
+  { label: '足球', cat: 'sports', x: 0.434, y: 2.241 },
+  { label: '马拉松', cat: 'sports', x: 0.524, y: 2.010 },
+];
+const QUERY_COORDS = [
+  { label: '辣味的中国菜', x: 4.778, y: -4.930 },
+  { label: 'AI 技术知识', x: -2.981, y: -4.056 },
+  { label: '团队体育项目', x: -0.012, y: -2.519 },
+];
+const CAT_COLORS = { tech: '#58a6ff', food: '#fb923c', sports: '#34d399' };
+
+function drawViz(queryIdx) {
+  const canvas = document.getElementById('vectorCanvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 420 * dpr;
+  canvas.style.height = '420px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const W = rect.width, H = 420;
+
+  // Compute bounds
+  const allPts = DOC_COORDS.concat(queryIdx >= 0 ? [QUERY_COORDS[queryIdx]] : []);
+  const xs = allPts.map(p => p.x), ys = allPts.map(p => p.y);
+  const xMin = Math.min(...xs), xMax = Math.max(...xs), yMin = Math.min(...ys), yMax = Math.max(...ys);
+  const pad = 1.5;
+  const sx = (x) => 60 + (x - (xMin - pad)) / ((xMax + pad) - (xMin - pad)) * (W - 120);
+  const sy = (y) => 50 + (y - (yMin - pad)) / ((yMax + pad) - (yMin - pad)) * (H - 100);
+
+  // Background
+  ctx.fillStyle = '#0f1117';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < W; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
+  for (let i = 0; i < H; i += 40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke(); }
+
+  // Cluster ellipses
+  function drawCluster(docs, color) {
+    const pts = docs.map(d => [sx(d.x), sy(d.y)]);
+    const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length;
+    const cy = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+    const rx = Math.max(...pts.map(p => Math.abs(p[0] - cx))) + 30;
+    const ry = Math.max(...pts.map(p => Math.abs(p[1] - cy))) + 25;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fillStyle = color + '08';
+    ctx.fill();
+    ctx.strokeStyle = color + '22';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  const techDocs = DOC_COORDS.filter(d => d.cat === 'tech');
+  const foodDocs = DOC_COORDS.filter(d => d.cat === 'food');
+  const sportsDocs = DOC_COORDS.filter(d => d.cat === 'sports');
+  drawCluster(techDocs, CAT_COLORS.tech);
+  drawCluster(foodDocs, CAT_COLORS.food);
+  drawCluster(sportsDocs, CAT_COLORS.sports);
+
+  // Cluster labels
+  function clusterLabel(docs, text, color) {
+    const cx = docs.reduce((a, d) => a + sx(d.x), 0) / docs.length;
+    const cy = docs.reduce((a, d) => a + sy(d.y), 0) / docs.length;
+    ctx.fillStyle = color;
+    ctx.font = 'bold 13px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(text, cx, cy - 15);
+  }
+  clusterLabel(techDocs, '科技', CAT_COLORS.tech);
+  clusterLabel(foodDocs, '美食', CAT_COLORS.food);
+  clusterLabel(sportsDocs, '运动', CAT_COLORS.sports);
+
+  // Query point
+  if (queryIdx >= 0) {
+    const q = QUERY_COORDS[queryIdx];
+    const qx = sx(q.x), qy = sy(q.y);
+
+    // Glow
+    const glow = ctx.createRadialGradient(qx, qy, 0, qx, qy, 30);
+    glow.addColorStop(0, 'rgba(248,81,73,0.3)');
+    glow.addColorStop(1, 'rgba(248,81,73,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(qx, qy, 30, 0, Math.PI * 2); ctx.fill();
+
+    // Point
+    ctx.fillStyle = '#f85149';
+    ctx.beginPath(); ctx.arc(qx, qy, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Label
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px -apple-system, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('🔍 ' + q.label, qx + 14, qy + 5);
+
+    // Lines to top 3 nearest docs
+    const top3 = DOC_COORDS.map((d, i) => {
+      const dx = q.x - d.x, dy = q.y - d.y;
+      return { ...d, dist: Math.sqrt(dx*dx + dy*dy) };
+    }).sort((a, b) => a.dist - b.dist).slice(0, 3);
+
+    top3.forEach((d, i) => {
+      const alpha = [0.5, 0.35, 0.2][i];
+      ctx.strokeStyle = `rgba(248,81,73,${alpha})`;
+      ctx.lineWidth = [2, 1.5, 1][i];
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(qx, qy);
+      ctx.lineTo(sx(d.x), sy(d.y));
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+  }
+
+  // Document points
+  DOC_COORDS.forEach(d => {
+    const px = sx(d.x), py = sy(d.y);
+    ctx.fillStyle = CAT_COLORS[d.cat];
+    ctx.beginPath(); ctx.arc(px, py, 5.5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#0f1117';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Label
+    ctx.fillStyle = '#c9d1d9';
+    ctx.font = '10px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(d.label, px, py - 12);
+  });
+}
+
+function vizQuery(idx) {
+  document.querySelectorAll('#tab-viz .preset-btn').forEach(b => b.classList.remove('active'));
+  if (idx >= 0) document.querySelectorAll('#tab-viz .preset-btn')[idx].classList.add('active');
+  else document.querySelectorAll('#tab-viz .preset-btn')[3].classList.add('active');
+  drawViz(idx);
+}
+
+// Init
+window.addEventListener('load', () => {
+  runDemo('query1');
+  drawViz(0);
+});
+
+window.addEventListener('resize', () => {
+  if (document.getElementById('tab-viz').classList.contains('active')) drawViz(-1);
+});
+</script>
+</body>
+</html>
