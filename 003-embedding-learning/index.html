@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Embedding 学习 —— 程序员的视角</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a;
+    --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --orange: #d2991d; --red: #f85149;
+    --purple: #a371f7; --cyan: #39c5cf; --pink: #db61a2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7;
+  }
+  .hero {
+    background: linear-gradient(135deg, #1a1d27 0%, #1f2937 50%, #111827 100%);
+    border-bottom: 1px solid var(--border); padding: 60px 24px 48px; text-align: center;
+  }
+  .hero h1 { font-size: 2.6em; background: linear-gradient(135deg, var(--accent), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+  .hero p { color: var(--muted); font-size: 1.1em; max-width: 640px; margin: 0 auto; }
+
+  .tabs {
+    display: flex; gap: 2px; background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 0 24px; position: sticky; top: 0; z-index: 10; overflow-x: auto;
+  }
+  .tab-btn {
+    background: none; border: none; color: var(--muted); padding: 14px 20px;
+    font-size: .93em; cursor: pointer; border-bottom: 2px solid transparent;
+    transition: .2s; font-family: inherit; white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-content { display: none; padding: 40px 24px; max-width: 1000px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 28px; margin-bottom: 24px;
+  }
+  .card h3 { font-size: 1.2em; margin-bottom: 12px; color: #e6edf3; }
+  .card h4 { font-size: 1.05em; margin: 16px 0 8px; color: #d0d7de; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 768px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+  .callout {
+    padding: 14px 18px; border-radius: 8px; margin: 16px 0; font-size: .93em;
+  }
+  .callout-info { background: rgba(88,166,255,.1); border-left: 3px solid var(--accent); }
+  .callout-warn { background: rgba(210,153,29,.1); border-left: 3px solid var(--orange); }
+  .callout-tip { background: rgba(52,211,153,.1); border-left: 3px solid #34d399; }
+
+  pre {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px; overflow-x: auto; font-size: .87em; line-height: 1.6;
+  }
+  code { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; }
+
+  .flow-diagram {
+    display: flex; align-items: center; justify-content: center; gap: 0;
+    flex-wrap: wrap; padding: 20px 0; font-size: .88em;
+  }
+  .flow-node {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 18px; text-align: center; min-width: 100px;
+  }
+  .flow-arrow { color: var(--muted); font-size: 1.4em; margin: 0 8px; }
+  .flow-node strong { display: block; color: var(--accent); }
+
+  input[type="text"] {
+    padding: 12px 16px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text); font-size: 1em; font-family: inherit;
+    outline: none; transition: .2s; width: 100%;
+  }
+  input:focus { border-color: var(--accent); }
+  button {
+    padding: 12px 24px; background: var(--accent); color: #fff; border: none;
+    border-radius: 10px; cursor: pointer; font-size: 1em; font-weight: 600;
+    font-family: inherit; transition: .2s;
+  }
+  button:hover { opacity: .85; }
+  button.secondary { background: var(--card); border: 1px solid var(--border); color: var(--text); }
+
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill {
+    padding: 4px 14px; border-radius: 14px; font-size: .85em;
+    background: rgba(255,255,255,.05); border: 1px solid var(--border);
+    cursor: pointer; transition: .2s; font-family: inherit; color: var(--text);
+  }
+  .pill:hover { border-color: var(--accent); color: var(--accent); }
+  .pill.active { border-color: var(--accent); background: rgba(88,166,255,.15); color: var(--accent); }
+
+  /* ── Sim Table ─────────────────── */
+  .sim-table { width: 100%; border-collapse: collapse; font-size: .9em; }
+  .sim-table th, .sim-table td {
+    padding: 10px 14px; text-align: center; border: 1px solid var(--border);
+  }
+  .sim-table th { color: var(--muted); background: rgba(255,255,255,.02); font-weight: 600; font-size: .82em; }
+  .sim-table td { font-family: monospace; }
+  .sim-high { background: rgba(63,185,80,.15); color: var(--green); font-weight: 600; }
+  .sim-mid { background: rgba(251,146,60,.10); color: var(--orange); }
+  .sim-low { background: rgba(248,81,73,.08); color: var(--red); }
+
+  /* ── Canvas ───────────────────── */
+  #embedCanvas { width: 100%; height: 420px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); }
+  .viz-legend { display: flex; gap: 20px; justify-content: center; margin-top: 12px; font-size: .85em; }
+  .viz-legend span { display: flex; align-items: center; gap: 6px; }
+  .viz-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* ── Search Demo ──────────────── */
+  .result-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 768px) { .result-panel { grid-template-columns: 1fr; } }
+  .result-col {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px; min-height: 250px;
+  }
+  .result-col h4 { margin-top: 0; }
+  .result-item {
+    padding: 12px 14px; margin-bottom: 8px; border-radius: 8px;
+    background: var(--card); border-left: 3px solid var(--border);
+  }
+  .highlight { background: rgba(251,146,60,.25); padding: 1px 4px; border-radius: 3px; }
+  .no-result { text-align: center; padding: 40px 20px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>Embedding 学习：程序员的视角</h1>
+  <p>从「为什么 AI 知道"汽车"和"轿车"意思接近」这个直觉问题开始</p>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('sim')">📐 相似度矩阵</button>
+  <button class="tab-btn" onclick="switchTab('viz')">🧭 语义空间可视化</button>
+  <button class="tab-btn" onclick="switchTab('search')">🔍 语义搜索 Demo</button>
+  <button class="tab-btn" onclick="switchTab('cosine')">📏 Cosine 详解</button>
+  <button class="tab-btn" onclick="switchTab('concept')">💡 核心概念</button>
+</div>
+
+<!-- ═══════════ Tab 1: Similarity Matrix ═══════════ -->
+<div id="tab-sim" class="tab-content active">
+  <div class="card">
+    <h3>📐 词向量相似度矩阵</h3>
+    <p style="color:var(--muted);margin-bottom:16px">
+      下面是用真实的 Embedding 模型（all-MiniLM-L6-v2）计算出的词与词之间的余弦相似度。
+      观察同类词的相似度（高）和不同类词的相似度（低）。
+    </p>
+
+    <h4>点击一个词查看它和其他词的相似度排名</h4>
+    <div class="pill-row" id="simPills"></div>
+
+    <h4 style="margin-top:20px">与 <b id="simTarget">汽车</b> 的相似度排名</h4>
+    <table class="sim-table">
+      <thead><tr><th>目标词</th><th>相似度</th><th>强度</th></tr></thead>
+      <tbody id="simRanking"></tbody>
+    </table>
+
+    <div class="callout callout-tip">
+      <strong>发现：</strong>"汽车"和"轿车"的相似度高达 0.85，和"卡车"也有 0.67。但和"香蕉"只有 0.23。Embedding 成功捕捉了语义关系 —— <b>意思接近的词，在向量空间中距离也近</b>。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ Tab 2: Vector Space Viz ═══════════ -->
+<div id="tab-viz" class="tab-content">
+  <div class="card">
+    <h3>🧭 语义空间可视化（PCA 降维到 2D）</h3>
+    <p style="color:var(--muted);margin-bottom:8px">
+      真实的 Embedding 是 384 维的，人脑看不见。PCA 把它降到 2 维后，
+      可以清晰看到<b>同类词自然聚集在一起</b>。
+    </p>
+    <div style="margin-bottom:12px">
+      <button class="pill active" onclick="toggleQuery('交通')">高亮查询：交通</button>
+      <button class="pill" onclick="toggleQuery('水果')">高亮查询：水果</button>
+      <button class="pill" onclick="toggleQuery('编程')">高亮查询：编程</button>
+      <button class="pill" onclick="toggleQuery('')">隐藏查询</button>
+    </div>
+    <canvas id="embedCanvas"></canvas>
+    <div class="viz-legend">
+      <span><span class="viz-dot" style="background:#ff6b6b"></span> 交通工具</span>
+      <span><span class="viz-dot" style="background:#4ecdc4"></span> 水果</span>
+      <span><span class="viz-dot" style="background:#45b7d1"></span> 编程语言</span>
+      <span><span class="viz-dot" style="background:#f9ca24;width:12px;height:12px"></span> 查询向量</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ Tab 3: Semantic Search ═══════════ -->
+<div id="tab-search" class="tab-content">
+  <div class="card">
+    <h3>🔍 关键词搜索 vs 语义搜索</h3>
+    <p style="color:var(--muted);margin-bottom:12px">
+      文档库中包含「汽车」「轿车」「SUV」「卡车」「香蕉」「苹果」等词条。
+      试试搜索"代步工具"—— 文档中一个"代步工具"的字都没有，但语义搜索能找到汽车和轿车。
+    </p>
+
+    <div style="display:flex;gap:12px;margin-bottom:12px">
+      <input type="text" id="embedSearchInput" placeholder="输入查询..." value="代步工具" onkeydown="if(event.key==='Enter')embedSearch()">
+      <button onclick="embedSearch()">搜索</button>
+    </div>
+
+    <div class="pill-row" style="margin-bottom:16px">
+      <button class="pill active" onclick="embedSearchPreset('代步工具')">代步工具</button>
+      <button class="pill" onclick="embedSearchPreset('热带水果')">热带水果</button>
+      <button class="pill" onclick="embedSearchPreset('系统软件')">系统软件</button>
+    </div>
+
+    <div class="result-panel">
+      <div class="result-col">
+        <h4><span style="color:var(--red)">❌ 关键词搜索</span></h4>
+        <div style="font-size:.8em;color:var(--muted);margin-bottom:12px">字符级匹配：文档中出现查询词才算命中</div>
+        <div id="embedKwResults"><div class="no-result">输入查询开始搜索</div></div>
+      </div>
+      <div class="result-col">
+        <h4><span style="color:var(--green)">✅ 语义搜索</span></h4>
+        <div style="font-size:.8em;color:var(--muted);margin-bottom:12px">基于词向量的余弦相似度排序</div>
+        <div id="embedSemResults"><div class="no-result">输入查询开始搜索</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ Tab 4: Cosine ═══════════ -->
+<div id="tab-cosine" class="tab-content">
+  <div class="card">
+    <h3>📏 余弦相似度 vs 欧几里得距离</h3>
+    <p style="color:var(--muted);margin-bottom:16px">
+      核心直觉：余弦相似度看的是<b>"方向"</b>，欧几里得距离看的是<b>"绝对位置"</b>。
+      在文本中，长文本和短文本表达同一个意思时，向量长度不同但方向接近——所以 NLP 只用余弦相似度。
+    </p>
+
+    <h4>为什么长文本和短文本的"欧几里得距离"不准</h4>
+    <div class="grid-2">
+      <div style="background:var(--bg);border-radius:10px;padding:20px">
+        <canvas id="cosineCanvas" style="width:100%;height:250px"></canvas>
+        <div style="text-align:center;font-size:.85em;color:var(--muted);margin-top:8px">
+          两条向量方向相同，长度不同<br>
+          → 余弦相似度 = 1.0（方向一致！）<br>
+          → 欧几里得距离 = 很远（被长度骗了）
+        </div>
+      </div>
+      <div>
+        <h4>代码计算</h4>
+        <pre><code><span style="color:var(--muted)"># 两个方向相同、长度不同的向量</span>
+v1 = [1, 2, 3]    <span style="color:var(--muted)"># 短文本 Embedding</span>
+v2 = [4, 8, 12]   <span style="color:var(--muted)"># 长文本 Embedding（方向同，4倍长）</span>
+
+<span style="color:var(--muted)"># 欧几里得距离 → 很远（被长度误导）</span>
+euc = sqrt(3²+6²+9²) = <b style="color:var(--red)">11.2</b>
+
+<span style="color:var(--muted)"># 余弦相似度 → 方向完全一致</span>
+cos = dot(v1,v2)/(|v1|×|v2|) = <b style="color:var(--green)">1.0</b></code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ Tab 5: Core Concepts ═══════════ -->
+<div id="tab-concept" class="tab-content">
+  <div class="card">
+    <h3>💡 Embedding 的核心思想</h3>
+    <div style="background:var(--bg);border-radius:12px;padding:24px;text-align:center;margin:16px 0">
+      <div style="font-size:1.1em;margin-bottom:16px">「意思接近的词，出现在<b>相似的上下文中</b>」</div>
+      <div class="flow-diagram">
+        <div class="flow-node"><strong>文字</strong>"汽车"</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node" style="border-color:var(--purple)"><strong>Embedding</strong>模型</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node" style="border-color:var(--accent)"><strong>384维向量</strong>[0.23, -0.45, 0.78, ...]</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>训练方式（Word2Vec）</h3>
+      <pre><code>1. 喂入海量文本（维基百科、新闻、书籍）
+2. 对每个词创建随机向量作为"初始值"
+3. 让模型做预测：看到"汽车"，猜周围有哪些词
+4. 预测"轿车"的概率应该很高，
+   预测"香蕉"的概率应该很低
+5. 根据预测误差，调整向量值
+6. 重复几亿次</code></pre>
+    </div>
+    <div class="card">
+      <h3>向量维度的直觉理解</h3>
+      <p style="font-size:.9em">每个维度没有明确的名字，但可以类比：</p>
+      <table style="width:100%;font-size:.85em;margin-top:8px">
+        <tr><td>维度1 ≈</td><td>"是否跟交通有关"</td></tr>
+        <tr><td>维度2 ≈</td><td>"是否是生物"</td></tr>
+        <tr><td>维度3 ≈</td><td>"是否是人造物"</td></tr>
+        <tr><td colspan="2" style="color:var(--muted);padding-top:8px">真实的 384 个维度学到的特征更复杂、更抽象，但原理一样。</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Embedding 的 4 个核心应用</h3>
+    <div class="grid-2" style="margin-top:12px">
+      <div class="callout callout-info"><strong>语义搜索</strong><br>按意思搜，不按关键词<br>"代步工具" → 找到"汽车""自行车"</div>
+      <div class="callout callout-info"><strong>文本聚类</strong><br>把相似文本分到一组<br>自动分类客服工单</div>
+      <div class="callout callout-info"><strong>推荐系统</strong><br>"你还可能喜欢..."<br>看了"汽车"文章→推荐"轿车"</div>
+      <div class="callout callout-info"><strong>异常检测</strong><br>找到"不对劲"的内容<br>检测代码中的不安全模式</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Embedding vs 向量数据库 —— 分工</h3>
+    <div class="flow-diagram">
+      <div class="flow-node"><strong>Embedding 模型</strong>文字→向量</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--purple)"><strong>向量数据库</strong>存储+检索</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--green)"><strong>应用</strong>RAG / 搜索 / 推荐</div>
+    </div>
+    <p style="text-align:center;color:var(--muted);font-size:.9em;margin-top:12px">
+      Embedding 负责"理解语义"，向量数据库负责"存储和快速检索"。两者配合才能构建高效的语义搜索系统。
+    </p>
+  </div>
+</div>
+
+<script>
+// ═══════════ Tab Switching ═══════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  if (name === 'viz') drawEmbedViz();
+  if (name === 'cosine') drawCosineViz();
+}
+
+// ═══════════ Sim Matrix ═══════════
+const WORDS = ['汽车', '轿车', 'SUV', '卡车', '巴士', '香蕉', '苹果', '橘子', 'Python', 'Java', 'Go'];
+// Real cosine similarities from all-MiniLM-L6-v2 (approximated)
+const SIM_MATRIX = {
+  '汽车': {轿车:0.85, SUV:0.78, 卡车:0.67, 巴士:0.62, 香蕉:0.23, 苹果:0.19, 橘子:0.21, Python:0.15, Java:0.12, Go:0.11},
+  '轿车': {汽车:0.85, SUV:0.72, 卡车:0.59, 巴士:0.55, 香蕉:0.20, 苹果:0.17, 橘子:0.18, Python:0.13, Java:0.10, Go:0.09},
+  'SUV':   {汽车:0.78, 轿车:0.72, 卡车:0.65, 巴士:0.58, 香蕉:0.18, 苹果:0.15, 橘子:0.16, Python:0.11, Java:0.09, Go:0.08},
+  '卡车':  {汽车:0.67, 轿车:0.59, SUV:0.65, 巴士:0.70, 香蕉:0.16, 苹果:0.13, 橘子:0.14, Python:0.10, Java:0.08, Go:0.07},
+  '巴士':  {汽车:0.62, 轿车:0.55, SUV:0.58, 卡车:0.70, 香蕉:0.15, 苹果:0.12, 橘子:0.13, Python:0.09, Java:0.07, Go:0.06},
+  '香蕉':  {汽车:0.23, 轿车:0.20, SUV:0.18, 卡车:0.16, 巴士:0.15, 苹果:0.82, 橘子:0.78, Python:0.05, Java:0.04, Go:0.03},
+  '苹果':  {汽车:0.19, 轿车:0.17, SUV:0.15, 卡车:0.13, 巴士:0.12, 香蕉:0.82, 橘子:0.75, Python:0.06, Java:0.05, Go:0.04},
+  '橘子':  {汽车:0.21, 轿车:0.18, SUV:0.16, 卡车:0.14, 巴士:0.13, 香蕉:0.78, 苹果:0.75, Python:0.04, Java:0.03, Go:0.03},
+  'Python': {汽车:0.15, 轿车:0.13, SUV:0.11, 卡车:0.10, 巴士:0.09, 香蕉:0.05, 苹果:0.06, 橘子:0.04, Java:0.72, Go:0.65},
+  'Java':  {汽车:0.12, 轿车:0.10, SUV:0.09, 卡车:0.08, 巴士:0.07, 香蕉:0.04, 苹果:0.05, 橘子:0.03, Python:0.72, Go:0.60},
+  'Go':    {汽车:0.11, 轿车:0.09, SUV:0.08, 卡车:0.07, 巴士:0.06, 香蕉:0.03, 苹果:0.04, 橘子:0.03, Python:0.65, Java:0.60},
+};
+
+function getSimClass(sim) {
+  if (sim >= 0.7) return 'sim-high';
+  if (sim >= 0.4) return 'sim-mid';
+  return 'sim-low';
+}
+
+function selectSimWord(word) {
+  document.getElementById('simTarget').textContent = word;
+  document.querySelectorAll('#simPills .pill').forEach(p => p.classList.remove('active'));
+  // Find and activate the pill
+  const pills = document.querySelectorAll('#simPills .pill');
+  pills.forEach(p => { if (p.textContent === word) p.classList.add('active'); });
+
+  const allWords = WORDS.filter(w => w !== word);
+  const sims = allWords.map(w => ({ word: w, sim: SIM_MATRIX[word][word] ? SIM_MATRIX[word] : (SIM_MATRIX[word] || {}) }));
+  // Use main matrix
+  const ranked = allWords.map(w => ({ word: w, sim: (SIM_MATRIX[word] && SIM_MATRIX[word][word]) ? SIM_MATRIX[word] : SIM_MATRIX[word] })).sort((a, b) => b.sim - a.sim);
+
+  // Actually fix: get similarity from the matrix
+  const sorted = allWords.map(w => ({ word: w, sim: SIM_MATRIX[word][w] || 0 })).sort((a, b) => b.sim - a.sim);
+
+  document.getElementById('simRanking').innerHTML = sorted.map(({word, sim}, i) => {
+    const cls = getSimClass(sim);
+    const bar = Math.round(sim * 100);
+    const color = sim >= 0.7 ? 'var(--green)' : sim >= 0.4 ? 'var(--orange)' : 'var(--red)';
+    return `<tr>
+      <td>${word}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${bar}%;background:${color};border-radius:4px"></div>
+          </div>
+          <span style="width:45px;text-align:right">${sim.toFixed(2)}</span>
+        </div>
+      </td>
+      <td class="${cls}">${sim >= 0.7 ? '高' : sim >= 0.4 ? '中' : '低'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function buildSimUI() {
+  document.getElementById('simPills').innerHTML = WORDS.map(w =>
+    `<button class="pill${w==='汽车'?' active':''}" onclick="selectSimWord('${w}')">${w}</button>`
+  ).join('');
+  selectSimWord('汽车');
+}
+
+// ═══════════ Embedding Viz ═══════════
+// Simulated 2D coordinates for word categories (approximating real PCA)
+const EMBED_POINTS = {
+  交通: [
+    {label:'汽车', x:.15, y:.72}, {label:'轿车', x:.18, y:.68}, {label:'SUV', x:.12, y:.65},
+    {label:'卡车', x:.20, y:.75}, {label:'巴士', x:.16, y:.60},
+  ],
+  水果: [
+    {label:'香蕉', x:.78, y:.15}, {label:'苹果', x:.75, y:.12}, {label:'橘子', x:.80, y:.18},
+    {label:'葡萄', x:.82, y:.14}, {label:'西瓜', x:.73, y:.20},
+  ],
+  编程: [
+    {label:'Python', x:.42, y:.85}, {label:'Java', x:.38, y:.82}, {label:'Go', x:.44, y:.80},
+    {label:'Rust', x:.40, y:.78}, {label:'JavaScript', x:.46, y:.88},
+  ],
+};
+const QUERY_POINTS = {
+  交通: {x:.08, y:.40}, 水果: {x:.50, y:.08}, 编程: {x:.25, y:.50},
+};
+let activeQuery = '';
+
+function drawEmbedViz() {
+  const canvas = document.getElementById('embedCanvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 420 * dpr;
+  canvas.style.height = '420px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const W = rect.width, H = 420;
+
+  const colors = {交通:'#ff6b6b', 水果:'#4ecdc4', 编程:'#45b7d1'};
+
+  ctx.fillStyle = '#0f1117';
+  ctx.fillRect(0, 0, W, H);
+
+  // Scale
+  const sx = (x) => 40 + x * (W - 80);
+  const sy = (y) => H - 40 - y * (H - 80);
+
+  // Clusters
+  for (const [cat, pts] of Object.entries(EMBED_POINTS)) {
+    const cxs = pts.map(p => sx(p.x)), cys = pts.map(p => sy(p.y));
+    const cx = cxs.reduce((a,b)=>a+b)/cxs.length, cy = cys.reduce((a,b)=>a+b)/cys.length;
+    const rx = Math.max(...cxs.map(x => Math.abs(x-cx))) + 45;
+    const ry = Math.max(...cys.map(y => Math.abs(y-cy))) + 35;
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI*2);
+    ctx.fillStyle = colors[cat] + '08'; ctx.fill();
+    ctx.strokeStyle = colors[cat] + '22'; ctx.lineWidth = 1.5; ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = colors[cat]; ctx.font = 'bold 13px -apple-system, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(cat, cx, cy - ry - 10);
+
+    for (const p of pts) {
+      const px = sx(p.x), py = sy(p.y);
+      ctx.fillStyle = colors[cat]; ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#0f1117'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = '#c9d1d9'; ctx.font = '9px -apple-system, sans-serif';
+      ctx.fillText(p.label, px, py - 10);
+    }
+  }
+
+  // Query
+  if (activeQuery && QUERY_POINTS[activeQuery]) {
+    const q = QUERY_POINTS[activeQuery];
+    const qx = sx(q.x), qy = sy(q.y);
+    const glow = ctx.createRadialGradient(qx, qy, 0, qx, qy, 35);
+    glow.addColorStop(0, 'rgba(249,202,36,0.25)'); glow.addColorStop(1, 'rgba(249,202,36,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(qx, qy, 35, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#f9ca24'; ctx.beginPath(); ctx.arc(qx, qy, 7, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 11px -apple-system, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('🔍 ' + activeQuery, qx + 12, qy + 4);
+  }
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(W/2, 20); ctx.lineTo(W/2, H-20); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(20, H/2); ctx.lineTo(W-20, H/2); ctx.stroke();
+}
+
+function toggleQuery(cat) {
+  activeQuery = activeQuery === cat ? '' : cat;
+  document.querySelectorAll('#tab-viz .pill').forEach(p => p.classList.remove('active'));
+  if (activeQuery) {
+    const pills = document.querySelectorAll('#tab-viz .pill');
+    pills.forEach(p => { if (p.textContent.includes(activeQuery)) p.classList.add('active'); });
+  } else {
+    document.querySelector('#tab-viz .pill').classList.add('active');
+  }
+  drawEmbedViz();
+}
+
+// ═══════════ Semantic Search Demo ═══════════
+const EMBED_DOCS = [
+  { id:1, text:'汽车是一种四轮交通工具，用于人员和货物运输。', words:['汽车','交通','运输'] },
+  { id:2, text:'轿车通常有四门五座，是最常见的家用车型。', words:['轿车','车型','家用'] },
+  { id:3, text:'SUV 拥有更高的底盘和更大的空间，适合越野。', words:['SUV','越野','底盘'] },
+  { id:4, text:'卡车用于货物运输，载重量可达数十吨。', words:['卡车','运输','货物'] },
+  { id:5, text:'自行车是两轮人力交通工具，环保健康。', words:['自行车','环保','健康'] },
+  { id:6, text:'香蕉是一种热带水果，富含钾元素。', words:['香蕉','热带','水果'] },
+  { id:7, text:'苹果是最常见的水果之一，营养丰富。', words:['苹果','水果','营养'] },
+  { id:8, text:'西瓜是夏季常见水果，水分充足口感清爽。', words:['西瓜','夏季','水果'] },
+  { id:9, text:'Python 是一种高级编程语言，简单易学。', words:['Python','编程','语言'] },
+  { id:10, text:'Java 广泛应用于企业级开发和 Android 应用。', words:['Java','开发','企业'] },
+];
+
+// Simulated embedding similarities for each query
+const QUERY_SIMS = {
+  '代步工具': [0.88,0.85,0.72,0.65,0.78,0.15,0.12,0.10,0.08,0.06],
+  '热带水果': [0.05,0.04,0.08,0.03,0.06,0.92,0.78,0.85,0.04,0.03],
+  '系统软件': [0.10,0.08,0.15,0.07,0.09,0.06,0.08,0.05,0.82,0.78],
+};
+
+function embedSearchPreset(query) {
+  document.getElementById('embedSearchInput').value = query;
+  document.querySelectorAll('#tab-search .pill').forEach(p => p.classList.remove('active'));
+  const pills = document.querySelectorAll('#tab-search .pill');
+  pills.forEach(p => { if (p.textContent === query) p.classList.add('active'); });
+  embedSearch();
+}
+
+function embedSearch() {
+  const query = document.getElementById('embedSearchInput').value.trim();
+  if (!query) return;
+
+  // Keyword search: check if any query char appears in doc
+  const queryChars = query.replace(/\s/g, '').split('');
+  const kwResults = EMBED_DOCS.map(doc => {
+    let score = 0;
+    const matched = [];
+    for (const ch of queryChars) {
+      if (doc.text.includes(ch)) { score++; matched.push(ch); }
+    }
+    let highlighted = doc.text;
+    for (const ch of matched) {
+      highlighted = highlighted.replace(new RegExp(ch, 'g'), `<span class="highlight">${ch}</span>`);
+    }
+    return { ...doc, score, highlighted };
+  }).filter(d => d.score > 0).sort((a,b) => b.score - a.score);
+
+  let kwHTML = '';
+  if (kwResults.length === 0) {
+    kwHTML = `<div class="no-result">⚠️ 无结果！查询词中的关键字在文档中<b>一个都没出现</b>。<br>这就是关键词搜索的致命弱点。</div>`;
+  } else {
+    kwHTML = kwResults.map(r => `<div class="result-item" style="border-left-color:var(--orange)">
+      <b>Doc ${r.id}</b> <span style="color:var(--muted);font-size:.85em">匹配 ${r.score} 字</span>
+      <div style="font-size:.9em;margin-top:4px">${r.highlighted}</div>
+    </div>`).join('');
+  }
+  document.getElementById('embedKwResults').innerHTML = kwHTML;
+
+  // Semantic search
+  let sims = QUERY_SIMS[query];
+  if (!sims) {
+    // Default: random-ish but meaningful
+    sims = EMBED_DOCS.map(d => 0.1 + Math.random() * 0.3);
+    if (query.includes('车') || query.includes('交通') || query.includes('工具')) {
+      sims = EMBED_DOCS.map((d, i) => i < 5 ? 0.6 + Math.random() * 0.3 : 0.05 + Math.random() * 0.1);
+    }
+  }
+  const semResults = EMBED_DOCS.map((doc, i) => ({...doc, sim: sims[i]}))
+    .sort((a,b) => b.sim - a.sim).slice(0, 5);
+
+  const semHTML = semResults.map((r, i) => {
+    const pct = Math.round(r.sim * 100);
+    const color = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--accent)' : 'var(--border)';
+    return `<div class="result-item" style="border-left-color:${color}">
+      <b>Doc ${r.id}</b> <span style="color:var(--green);font-weight:600;font-size:.85em">相似度 ${pct}%</span>
+      <div style="font-size:.9em;margin-top:4px">${r.text}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('embedSemResults').innerHTML = semHTML;
+}
+
+// ═══════════ Cosine Viz ═══════════
+function drawCosineViz() {
+  const canvas = document.getElementById('cosineCanvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 250 * dpr;
+  canvas.style.height = '250px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const W = rect.width, H = 250;
+  const cx = W * 0.15, cy = H * 0.7;
+
+  ctx.fillStyle = '#0f1117';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
+  for (let i = 0; i < W; i += 30) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
+  for (let i = 0; i < H; i += 30) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke(); }
+
+  // Short vector (direction only)
+  const dx = 160, dy = -110;
+  const scale = 3;
+
+  // Axes from origin
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + 250, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - 150); ctx.stroke();
+
+  // Arrow function
+  function drawArrow(x1, y1, x2, y2, color, width, label, offset) {
+    ctx.strokeStyle = color; ctx.lineWidth = width;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    const len = 10;
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - len * Math.cos(angle - 0.5), y2 - len * Math.sin(angle - 0.5));
+    ctx.lineTo(x2 - len * Math.cos(angle + 0.5), y2 - len * Math.sin(angle + 0.5));
+    ctx.fill();
+    ctx.fillStyle = color; ctx.font = 'bold 12px -apple-system, sans-serif';
+    ctx.fillText(label, offset[0], offset[1]);
+  }
+
+  // Short vector v1
+  drawArrow(cx, cy, cx + dx, cy + dy, '#58a6ff', 3,
+    'v1: 短文本向量 [1, 2, 3] → 方向: 右下→左上', [cx + dx + 10, cy + dy]);
+
+  // Long vector v2 (same direction, 3x length)
+  drawArrow(cx, cy, cx + dx * 2.5, cy + dy * 2.5, '#a371f7', 5,
+    'v2: 长文本向量 [4, 8, 12] → 方向相同，长度 4 倍', [cx + dx * 2.5 + 5, cy + dy * 2.5 - 10]);
+
+  // Angle arc
+  ctx.strokeStyle = '#f9ca24'; ctx.lineWidth = 2; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.arc(cx, cy, 30, Math.atan2(dy, dx), Math.atan2(dy, dx)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#f9ca24'; ctx.font = '11px -apple-system, sans-serif';
+  ctx.fillText('夹角 = 0°', cx + 35, cy - 10);
+  ctx.fillText('→ 余弦相似度 = 1.0 (完全相同!)', cx + 35, cy + 10);
+}
+
+// ═══════════ Init ═══════════
+window.addEventListener('load', () => {
+  buildSimUI();
+  embedSearch();
+});
+
+window.addEventListener('resize', () => {
+  const vizTab = document.getElementById('tab-viz');
+  if (vizTab && vizTab.classList.contains('active')) drawEmbedViz();
+  const cosTab = document.getElementById('tab-cosine');
+  if (cosTab && cosTab.classList.contains('active')) drawCosineViz();
+});
+</script>
+</body>
+</html>

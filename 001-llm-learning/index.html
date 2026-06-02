@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM 学习 —— 程序员的视角</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a;
+    --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --orange: #d2991d; --red: #f85149;
+    --purple: #a371f7; --cyan: #39c5cf; --pink: #db61a2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7;
+  }
+  .hero {
+    background: linear-gradient(135deg, #1a1d27 0%, #1f2937 50%, #111827 100%);
+    border-bottom: 1px solid var(--border); padding: 60px 24px 48px; text-align: center;
+  }
+  .hero h1 { font-size: 2.6em; background: linear-gradient(135deg, var(--accent), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+  .hero p { color: var(--muted); font-size: 1.1em; max-width: 640px; margin: 0 auto; }
+
+  .tabs {
+    display: flex; gap: 2px; background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 0 24px; position: sticky; top: 0; z-index: 10; overflow-x: auto;
+  }
+  .tab-btn {
+    background: none; border: none; color: var(--muted); padding: 14px 20px;
+    font-size: .93em; cursor: pointer; border-bottom: 2px solid transparent;
+    transition: .2s; font-family: inherit; white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-content { display: none; padding: 40px 24px; max-width: 1000px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 28px; margin-bottom: 24px;
+  }
+  .card h3 { font-size: 1.2em; margin-bottom: 12px; color: #e6edf3; }
+  .card h4 { font-size: 1.05em; margin: 16px 0 8px; color: #d0d7de; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+  .callout {
+    padding: 14px 18px; border-radius: 8px; margin: 16px 0; font-size: .93em;
+  }
+  .callout-info { background: rgba(88,166,255,.1); border-left: 3px solid var(--accent); }
+  .callout-warn { background: rgba(210,153,29,.1); border-left: 3px solid var(--orange); }
+  .callout-tip { background: rgba(52,211,153,.1); border-left: 3px solid #34d399; }
+
+  pre {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px; overflow-x: auto; font-size: .87em; line-height: 1.6;
+  }
+  code { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; }
+
+  .flow-diagram {
+    display: flex; align-items: center; justify-content: center; gap: 0;
+    flex-wrap: wrap; padding: 20px 0; font-size: .88em;
+  }
+  .flow-node {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 18px; text-align: center; min-width: 100px;
+  }
+  .flow-arrow { color: var(--muted); font-size: 1.4em; margin: 0 8px; }
+  .flow-node strong { display: block; color: var(--accent); }
+
+  /* ── Token Demo ─────────────────── */
+  .token-display { display: flex; flex-wrap: wrap; gap: 4px; padding: 16px; background: var(--bg); border-radius: 10px; margin: 12px 0; min-height: 50px; align-items: flex-start; }
+  .token-chip {
+    padding: 4px 10px; border-radius: 6px; font-size: .85em; font-family: monospace;
+    border: 1px solid; cursor: default; position: relative; transition: .2s;
+  }
+  .token-chip:hover { transform: scale(1.08); z-index: 2; }
+  .token-chip .tid { font-size: .7em; opacity: .6; display: block; }
+  .color-0 { background: rgba(88,166,255,.15); border-color: var(--accent); color: var(--accent); }
+  .color-1 { background: rgba(167,139,250,.15); border-color: var(--purple); color: var(--purple); }
+  .color-2 { background: rgba(52,211,153,.15); border-color: #34d399; color: #34d399; }
+  .color-3 { background: rgba(251,146,60,.15); border-color: #fb923c; color: #fb923c; }
+  .color-4 { background: rgba(219,97,162,.15); border-color: var(--pink); color: var(--pink); }
+  .color-5 { background: rgba(57,197,207,.15); border-color: var(--cyan); color: var(--cyan); }
+
+  input[type="text"], textarea {
+    padding: 12px 16px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text); font-size: 1em; font-family: inherit;
+    outline: none; transition: .2s; width: 100%;
+  }
+  input:focus, textarea:focus { border-color: var(--accent); }
+  button {
+    padding: 12px 24px; background: var(--accent); color: #fff; border: none;
+    border-radius: 10px; cursor: pointer; font-size: 1em; font-weight: 600;
+    font-family: inherit; transition: .2s;
+  }
+  button:hover { opacity: .85; }
+  button.secondary { background: var(--card); border: 1px solid var(--border); color: var(--text); }
+
+  /* ── Probability bars ──────────── */
+  .prob-bars { margin: 12px 0; }
+  .prob-row {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 6px;
+    padding: 6px 10px; border-radius: 6px; cursor: default;
+  }
+  .prob-row:hover { background: rgba(255,255,255,.03); }
+  .prob-label { width: 80px; font-family: monospace; font-size: .9em; text-align: right; }
+  .prob-bar-outer { flex: 1; height: 24px; background: var(--bg); border-radius: 6px; overflow: hidden; }
+  .prob-bar-inner {
+    height: 100%; border-radius: 6px; display: flex; align-items: center;
+    padding-left: 8px; font-size: .8em; font-weight: 600; transition: width .4s;
+  }
+  .prob-pct { width: 50px; font-family: monospace; font-size: .85em; }
+
+  /* ── Context Window ────────────── */
+  .ctx-window {
+    border: 2px solid var(--border); border-radius: 12px; padding: 2px;
+    margin: 16px 0; background: var(--bg); position: relative; overflow: hidden;
+  }
+  .ctx-inner {
+    display: flex; gap: 2px; overflow-x: auto; padding: 8px; min-height: 40px;
+    align-items: center;
+  }
+  .ctx-token {
+    padding: 3px 8px; border-radius: 4px; background: rgba(88,166,255,.1);
+    font-family: monospace; font-size: .8em; white-space: nowrap; flex-shrink: 0;
+  }
+  .ctx-token.faded { opacity: .3; }
+  .ctx-token.active { background: rgba(88,166,255,.25); border: 1px solid var(--accent); }
+
+  /* ── Attention Viz ─────────────── */
+  .attn-grid {
+    display: inline-grid; gap: 1px; background: var(--border); border-radius: 4px; overflow: hidden;
+  }
+  .attn-cell {
+    width: 28px; height: 28px; transition: .3s;
+  }
+  .attn-label {
+    font-size: .7em; color: var(--muted); text-align: center; padding: 4px 8px;
+  }
+
+  textarea { min-height: 80px; resize: vertical; }
+
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill {
+    padding: 3px 12px; border-radius: 14px; font-size: .8em;
+    background: rgba(255,255,255,.05); border: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>LLM 学习：程序员的视角</h1>
+  <p>不是数学家，是程序员。我们从代码理解 LLM，不是从公式。</p>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('token')">🔤 Token 分词</button>
+  <button class="tab-btn" onclick="switchTab('next')">🎯 下一个词预测</button>
+  <button class="tab-btn" onclick="switchTab('context')">🪟 Context Window</button>
+  <button class="tab-btn" onclick="switchTab('attention')">👁️ Attention</button>
+  <button class="tab-btn" onclick="switchTab('temperature')">🌡️ Temperature</button>
+  <button class="tab-btn" onclick="switchTab('hallucination')">💭 幻觉</button>
+</div>
+
+<!-- ═══════════ Tab 1: Token ═══════════ -->
+<div id="tab-token" class="tab-content active">
+  <div class="card">
+    <h3>🔤 Token 是什么？</h3>
+    <p>LLM 不看"字"，也不看"字母"。它看的是 <b>Token ID</b>——介于字和词之间的"积木块"。</p>
+    <div class="flow-diagram">
+      <div class="flow-node"><strong>文本</strong>"Hello, 世界"</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--purple)"><strong>Tokenizer</strong>分词器</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--accent)"><strong>Token IDs</strong>[15496, 11, 235, 145, ...]</div>
+    </div>
+
+    <h4>试试把你的文本转成 Token</h4>
+    <div style="display:flex;gap:12px;margin-bottom:12px">
+      <input type="text" id="tokenInput" placeholder="输入中文或英文..." value="你好，世界！Hello World!" oninput="tokenize()">
+      <button onclick="tokenize()">分词</button>
+    </div>
+    <div class="token-display" id="tokenOutput"></div>
+    <div class="callout callout-tip">
+      <strong>规律：</strong>英文一个词 ≈ 1 个 Token；中文一个字 ≈ 1~2 个 Token；标点符号也是 Token。LLM 的计费也是按 Token 算的——输入和输出的 Token 数加起来就是账单。
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>中文为什么"贵"</h3>
+      <p style="margin-bottom:8px">同样的意思，中文的 Token 数大约是英文的 1.5~2 倍：</p>
+      <table style="width:100%;font-size:.9em">
+        <tr><td style="width:50%"><code>"Hello World"</code></td><td>2 个 Token</td></tr>
+        <tr><td><code>"你好世界"</code></td><td style="color:var(--orange)">4 个 Token</td></tr>
+        <tr style="border-top:1px solid var(--border)"><td><code>"artificial intelligence"</code></td><td>2 个 Token</td></tr>
+        <tr><td><code>"人工智能"</code></td><td style="color:var(--orange)">4 个 Token</td></tr>
+      </table>
+      <div class="callout callout-info" style="margin-top:12px">
+        这就是为什么用中文 API 调用通常更贵——同样的任务需要更多 Token。
+      </div>
+    </div>
+    <div class="card">
+      <h3>BPE 分词原理</h3>
+      <p style="font-size:.9em">BPE = Byte Pair Encoding。把文本拆解为最常见的"字串对"：</p>
+      <pre><code>初始: "低" "成" "本"
+第1步: "低" + "成本" → 发现有大量"低成本"这个模式
+第2步: 合并 → Token: "低成本" (1个Token)
+
+"高成本" → 却不行，因为不常见
+所以"高成本"还是3个Token: "高" + "成本"</code></pre>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ Tab 2: Next Token Prediction ═══════════ -->
+<div id="tab-next" class="tab-content">
+  <div class="card">
+    <h3>🎯 LLM 的本质：超级输入法联想</h3>
+    <p style="color:var(--muted);margin-bottom:16px">
+      LLM 只做一件事——<b>给定前文，预测下一个 Token 的概率分布</b>。不是"知道答案"，而是"擅长续写"。
+    </p>
+
+    <h4>输入一段文字，看看 LLM 会预测什么</h4>
+    <textarea id="nextInput" placeholder="输入一段文字..." oninput="predictNext()">中国的首都是</textarea>
+
+    <h4 style="margin-top:16px">预测的下一个 Token 概率分布</h4>
+    <div class="prob-bars" id="probBars"></div>
+    <div class="callout callout-info">
+      注意：LLM 输出的是一个<b>概率分布</b>——不是确定的答案。这就是为什么同一个 Prompt 每次得到的回答可能不同（取决于采样策略）。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>📐 训练过程：Next Token Prediction</h3>
+    <div class="flow-diagram">
+      <div class="flow-node"><strong>海量文本</strong>整个互联网</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--red)"><strong>遮住最后</strong>一个词</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--accent)"><strong>让模型猜</strong></div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--green)"><strong>猜错→调整</strong>参数</div>
+    </div>
+    <pre><code>输入:  "中国的首都是 ___"     → 模型猜: [北京:92%, 上海:3%, 广州:1%, ...]
+输入:  "1 + 1 = ___"            → 模型猜: [2:95%, 3:2%, 0:1%, ...]
+输入:  "She opened the ___"    → 模型猜: [door:25%, book:18%, box:12%, ...]
+
+重复几万亿次后，模型学到了语言的统计规律——不是背答案，而是学到了<b>词与词之间的概率关系</b>。</code></pre>
+  </div>
+</div>
+
+<!-- ═══════════ Tab 3: Context Window ═══════════ -->
+<div id="tab-context" class="tab-content">
+  <div class="card">
+    <h3>🪟 Context Window —— LLM 的"视野"</h3>
+    <p style="color:var(--muted);margin-bottom:16px">
+      LLM 一次能"看到"的 Token 数量是有限的，这就是 Context Window。超出窗口的内容会被"遗忘"。
+    </p>
+
+    <h4>模拟：Context Window = 20 Tokens（拖动滑块看"失忆"效果）</h4>
+    <div style="margin:12px 0">
+      <label style="font-size:.85em">上下文长度（Token 数）：<b id="ctxCount">8</b></label><br>
+      <input type="range" id="ctxSlider" min="4" max="30" value="8" style="width:100%;margin:8px 0" oninput="updateCtx()">
+    </div>
+
+    <div style="font-size:.85em;color:var(--muted)">完整对话历史：</div>
+    <div class="token-display" id="ctxFull" style="opacity:.5"></div>
+
+    <div style="font-size:.85em;color:var(--green);margin-top:8px">LLM 实际"看到"的内容（在 Context Window 内）：</div>
+    <div class="token-display" id="ctxVisible" style="background:rgba(63,185,80,.05)"></div>
+
+    <div class="callout callout-warn">
+      这就是为什么和 LLM 聊了很长一段后，它可能"忘记"最开始说的内容——前面的 Token 被挤出了 Context Window。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ Tab 4: Attention ═══════════ -->
+<div id="tab-attention" class="tab-content">
+  <div class="card">
+    <h3>👁️ Self-Attention：LLM 怎么理解上下文</h3>
+    <p style="color:var(--muted);margin-bottom:16px">
+      Attention 让 LLM 在处理每个词时，都能"看到"句子中所有其他词，并决定哪些词更相关。
+    </p>
+
+    <h4>点击句子中的词，看它"关注"哪些词</h4>
+    <div id="attnSentence" style="padding:16px;background:var(--bg);border-radius:10px;margin:12px 0"></div>
+
+    <div class="grid-2" style="margin-top:16px">
+      <div>
+        <h4>Attention 权重矩阵</h4>
+        <div id="attnMatrix"></div>
+      </div>
+      <div>
+        <h4>解析</h4>
+        <div id="attnExplain" class="callout callout-info" style="min-height:100px">
+          点击一个词查看它的 Attention 分布。
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <strong>为什么 Attention 重要：</strong>传统模型按顺序处理文本，离得远的词很难建立联系。Attention 让模型可以<b>直接跳跃连接</b>到任何位置——就像你在读文章时，眼光可以直接跳到前面提到的人名或概念上。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ Tab 5: Temperature ═══════════ -->
+<div id="tab-temperature" class="tab-content">
+  <div class="card">
+    <h3>🌡️ Temperature（温度）——控制 LLM 的"创造力"</h3>
+    <p style="color:var(--muted);margin-bottom:16px">
+      LLM 输出的是一个概率分布。Temperature 控制要不要"压制"低概率选项。
+    </p>
+
+    <h4>同一句话，不同 Temperature 的效果</h4>
+    <div style="margin:12px 0">
+      <label style="font-size:.85em">Temperature：<b id="tempVal">0.2</b></label><br>
+      <input type="range" id="tempSlider" min="0.1" max="2.0" step="0.1" value="0.2" style="width:100%;margin:8px 0" oninput="updateTemp()">
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <h4>概率分布变化</h4>
+        <div class="prob-bars" id="tempBars"></div>
+      </div>
+      <div>
+        <h4>效果说明</h4>
+        <div class="callout callout-info" id="tempExplain">
+          <strong>Temperature = 0.2（低）</strong><br>
+          高概率单词被放大 → 输出确定、保守、不犯错<br>
+          适合：代码生成、翻译、事实问答
+        </div>
+      </div>
+    </div>
+
+    <table style="margin-top:16px;font-size:.9em">
+      <tr><th>Temperature</th><th>效果</th><th>适合场景</th></tr>
+      <tr><td>0 ~ 0.3</td><td>输出确定、保守、可复现</td><td>代码生成、翻译、数学</td></tr>
+      <tr><td>0.5 ~ 0.7</td><td>平衡确定性和多样性</td><td>日常对话、总结</td></tr>
+      <tr><td>0.8 ~ 1.2</td><td>有创意但不失控</td><td>创意写作、头脑风暴</td></tr>
+      <tr><td>1.5 ~ 2.0</td><td>非常随机，可能"胡言乱语"</td><td>几乎不用</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════ Tab 6: Hallucination ═══════════ -->
+<div id="tab-hallucination" class="tab-content">
+  <div class="card">
+    <h3>💭 幻觉（Hallucination）—— LLM 会"编造事实"</h3>
+    <p style="color:var(--muted);margin-bottom:16px">
+      LLM 没有"知识库"和"真假判断"能力。它只是在做概率续写——有时候概率最高的续写恰好是编造的内容。
+    </p>
+
+    <div class="grid-2">
+      <div class="callout callout-warn">
+        <strong>为什么会幻觉：</strong><br>
+        1. LLM 不是数据库——不会"查"答案<br>
+        2. 训练数据不完整或过时<br>
+        3. 推理链太长，中途概率"漂移"<br>
+        4. 被 Prompt 诱导（"告诉我关于X的事"——X 不存在也会编）
+      </div>
+      <div class="callout callout-tip">
+        <strong>怎么缓解：</strong><br>
+        1. <b>RAG</b>（检索增强生成）：先用向量数据库找相关文档，再让 LLM 基于文档回答<br>
+        2. <b>Few-shot</b>：给几个真实例子<br>
+        3. <b>低 Temperature</b>：减少随机性<br>
+        4. <b>明确指令</b>："如果你不确定，说不知道"
+      </div>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>一句话记住：</strong>LLM 的本质是"超级输入法联想"，不是"超级百科全书"。它续写出来的内容"看起来像真话"，但不保证是事实。这恰好解释了为什么 <b>RAG（检索增强生成）</b> 很重要——把"检索真实文档"和"LLM 生成"结合起来，才能兼顾准确性和流畅性。
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════ Tab Switching ═══════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+// ═══════════ Token Demo ═══════════
+// Simulated tokenizer (simplified — real BPE is more complex)
+function simpleTokenize(text) {
+  const tokens = [];
+  let i = 0;
+  const colors = ['color-0','color-1','color-2','color-3','color-4','color-5'];
+
+  // Common multi-char tokens to try first
+  const patterns = [
+    'Hello', 'World', '你好', '世界', '学习', '中国', '人工智能',
+    '!', ',', '。', '？', '！', ' ', '\n'
+  ];
+
+  while (i < text.length) {
+    let matched = false;
+    for (const p of patterns) {
+      if (text.substring(i, i + p.length) === p) {
+        tokens.push({ text: p, id: 1000 + Math.floor(Math.random() * 9000), color: colors[tokens.length % colors.length] });
+        i += p.length;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      // Single character
+      const ch = text[i];
+      // CJK characters get separate IDs
+      const isCJK = /[一-鿿㐀-䶿]/.test(ch);
+      tokens.push({
+        text: ch,
+        id: isCJK ? 20000 + ch.charCodeAt(0) : 100 + ch.charCodeAt(0),
+        color: colors[tokens.length % colors.length]
+      });
+      i++;
+    }
+  }
+  return tokens;
+}
+
+function tokenize() {
+  const text = document.getElementById('tokenInput').value;
+  const tokens = simpleTokenize(text);
+  const out = document.getElementById('tokenOutput');
+  out.innerHTML = tokens.map(t =>
+    `<span class="token-chip ${t.color}">${t.text}<span class="tid">ID:${t.id}</span></span>`
+  ).join('');
+  document.getElementById('tokenOutput').innerHTML +=
+    `<div style="margin-top:12px;font-size:.85em;color:var(--muted)">共 <b>${tokens.length}</b> 个 Token</div>`;
+}
+
+// ═══════════ Next Token Prediction ═══════════
+const PREDICTIONS = {
+  '中国的首都是': [['北京', 0.82], ['上海', 0.08], ['南京', 0.04], ['广州', 0.02], ['深圳', 0.01], ['其他', 0.03]],
+  '1 + 1 =': [['2', 0.90], ['3', 0.03], ['1', 0.02], ['0', 0.01], ['其他', 0.04]],
+  'def fibonacci': [['(n):', 0.65], ['(n', 0.15], ['_', 0.08], ['(', 0.05], [' ', 0.07]],
+  'She opened the': [['door', 0.25], ['book', 0.18], ['box', 0.12], ['window', 0.10], ['letter', 0.08], ['其他', 0.27]],
+  '今天天气真': [['好', 0.45], ['热', 0.20], ['冷', 0.12], ['不错', 0.10], ['差', 0.05], ['其他', 0.08]],
+  '我心里': [['很难过', 0.22], ['有点忐忑', 0.18], ['很高兴', 0.15], ['很激动', 0.12], ['想着', 0.10], ['其他', 0.23]],
+};
+
+function predictNext() {
+  const input = document.getElementById('nextInput').value.trim();
+  let probs;
+
+  // Try exact match
+  if (PREDICTIONS[input]) {
+    probs = PREDICTIONS[input];
+  } else {
+    // Try prefix match
+    const keys = Object.keys(PREDICTIONS).filter(k => input.endsWith(k));
+    if (keys.length > 0) {
+      probs = PREDICTIONS[keys[0]];
+    } else {
+      // Default fallback
+      probs = [['___', 0.35], ['...', 0.20], ['...', 0.15], ['...', 0.10], ['...', 0.08], ['...', 0.12]];
+    }
+  }
+
+  const colors = ['#58a6ff','#a371f7','#3fb950','#fb923c','#db61a2','#39c5cf'];
+  document.getElementById('probBars').innerHTML = probs.map(([word, prob], i) => {
+    const pct = Math.round(prob * 100);
+    return `<div class="prob-row">
+      <span class="prob-label">${word}</span>
+      <div class="prob-bar-outer">
+        <div class="prob-bar-inner" style="width:${pct}%;background:${colors[i]}">${pct}%</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════ Context Window ═══════════
+const CONVERSATION = [
+  '用户', ':', '你好', '，', '请帮', '我写', '一个', 'Python', '函数', '。',
+  '助手', ':', '好的', '，', '什么', '功能', '？', '\n',
+  '用户', ':', '计算', '斐波', '那契', '数列', '，', '要带', '缓存', '。', '\n',
+  '助手', ':', '以下', '是', '带', 'lru', '_', 'cache', '的', '实现', '：',
+  'def', ' ', 'fib', '(', 'n', '):', '\n', '    ', 'if', ' ', 'n', ' ', '<', '=', ' ', '1', ':', ' return', ' ', 'n', '\n',
+  '    ', 'return', ' ', 'fib', '(', 'n', '-', '1', ')', ' +', ' ', 'fib', '(', 'n', '-', '2', ')', '\n',
+  '用户', ':', '谢谢', '！', '能加', '上', '类型', '注解', '吗', '？',
+];
+
+function updateCtx() {
+  const n = parseInt(document.getElementById('ctxSlider').value);
+  document.getElementById('ctxCount').textContent = n;
+
+  // Full history
+  const fullHTML = CONVERSATION.map((t, i) =>
+    `<span class="ctx-token" style="color:${i >= CONVERSATION.length - n ? 'var(--text)' : ''}">${t}</span>`
+  ).join('');
+  document.getElementById('ctxFull').innerHTML = fullHTML;
+
+  // Visible (last n tokens)
+  const visible = CONVERSATION.slice(-n);
+  const visHTML = visible.map(t =>
+    `<span class="ctx-token active">${t}</span>`
+  ).join('');
+  document.getElementById('ctxVisible').innerHTML = visHTML + '<span style="font-size:.85em;color:var(--muted);margin-left:8px">← LLM 只能看到这些</span>';
+}
+
+// ═══════════ Attention ═══════════
+const ATTN_SENTS = [
+  ['那只', '猫', '坐在', '垫子', '上', '因为', '它', '累了'],
+  ['我', '把', '苹果', '放进', '冰箱', '，', '它', '很', '新鲜'],
+  ['银行', '利率', '下调', '了', '，', '这', '影响', '了', '贷款'],
+];
+let attnWords = ATTN_SENTS[0];
+let activeWordIdx = 1;
+
+function buildAttnUI() {
+  // Sentence
+  document.getElementById('attnSentence').innerHTML = attnWords.map((w, i) =>
+    `<span class="token-chip ${i === activeWordIdx ? 'color-2' : 'color-0'}"
+           style="cursor:pointer;font-size:1.05em;margin:2px"
+           onclick="setActiveWord(${i})">${w}</span>`
+  ).join('') + '<div style="margin-top:8px;font-size:.8em;color:var(--muted)">点击任意词查看 Attention 分布</div>';
+
+  // Matrix
+  const n = attnWords.length;
+  let html = '<div class="attn-grid" style="grid-template-columns:repeat(' + (n+1) + ',1fr)">';
+  html += '<div class="attn-label" style="color:var(--muted)">Q↓/K→</div>';
+  for (let j = 0; j < n; j++) {
+    html += `<div class="attn-label" style="font-weight:${j===activeWordIdx?'bold;color:var(--accent)':''}">${attnWords[j]}</div>`;
+  }
+  for (let i = 0; i < n; i++) {
+    html += `<div class="attn-label" style="font-weight:${i===activeWordIdx?'bold;color:var(--accent)':''}">${attnWords[i]}</div>`;
+    for (let j = 0; j < n; j++) {
+      const attn = getAttention(i, j);
+      const alpha = Math.round(attn * 255);
+      const isQuery = i === activeWordIdx;
+      html += `<div class="attn-cell" style="background:rgba(88,166,255,${attn.toFixed(2)});${isQuery?'outline:2px solid var(--green);outline-offset:-2px':''}"
+               title="${attnWords[i]} → ${attnWords[j]}: ${(attn*100).toFixed(0)}%"></div>`;
+    }
+  }
+  html += '</div>';
+  document.getElementById('attnMatrix').innerHTML = html;
+
+  // Explanation
+  const expl = document.getElementById('attnExplain');
+  const word = attnWords[activeWordIdx];
+  const topAttn = attnWords.map((w, j) => ({w, a: getAttention(activeWordIdx, j)})).filter(x => x.a > 0.05).sort((a,b) => b.a - a.a);
+  expl.innerHTML = `<strong>"${word}"</strong> 的 Attention 分布：<br>` +
+    topAttn.map(x => `• <b>${x.w}</b>: ${Math.round(x.a*100)}%`).join('<br>') +
+    `<br><span style="color:var(--muted);font-size:.85em">→ ${getExplanation(word, topAttn)}</span>`;
+}
+
+function getAttention(queryIdx, keyIdx) {
+  if (queryIdx === keyIdx) return 0.6 + Math.random() * 0.3;
+  // Simulate semantic relevance
+  const dist = Math.abs(queryIdx - keyIdx);
+  return Math.max(0, (1 - dist / attnWords.length) * 0.7 + Math.random() * 0.15);
+}
+
+function getExplanation(word, topAttn) {
+  if (word === '它' || word === '这') return '代词会特别关注它指代的名词（共指消解）';
+  if (word === '因为') return '因果连词关注前后的因果关系词';
+  return '这个词和句中其他词都有不同程度的语义关联';
+}
+
+function setActiveWord(idx) {
+  activeWordIdx = idx;
+  buildAttnUI();
+}
+
+// ═══════════ Temperature ═══════════
+const BASE_PROBS = [
+  ['北京', 0.45], ['上海', 0.20], ['广州', 0.12], ['深圳', 0.08],
+  ['杭州', 0.05], ['成都', 0.04], ['武汉', 0.03], ['南京', 0.02], ['其他', 0.01]
+];
+
+function updateTemp() {
+  const T = parseFloat(document.getElementById('tempSlider').value);
+  document.getElementById('tempVal').textContent = T;
+
+  // Apply temperature: p_i^(1/T) / sum(p_j^(1/T))
+  const logits = BASE_PROBS.map(([w, p]) => Math.log(Math.max(p, 0.001)));
+  const scaled = logits.map(l => Math.exp(l / T));
+  const sum = scaled.reduce((a, b) => a + b, 0);
+  const newProbs = BASE_PROBS.map(([w, _], i) => [w, scaled[i] / sum]);
+
+  const colors = ['#58a6ff','#a371f7','#3fb950','#fb923c','#db61a2','#39c5cf','#f85149','#d2991d','#8b949e'];
+  document.getElementById('tempBars').innerHTML = newProbs.map(([w, p], i) => {
+    const pct = Math.round(p * 100);
+    const color = i === 0 ? '#3fb950' : colors[i];
+    return `<div class="prob-row">
+      <span class="prob-label">${w}</span>
+      <div class="prob-bar-outer"><div class="prob-bar-inner" style="width:${Math.max(pct,2)}%;background:${color}">${pct}%</div></div>
+    </div>`;
+  }).join('');
+
+  const expl = document.getElementById('tempExplain');
+  if (T <= 0.3) {
+    expl.innerHTML = '<strong>Temperature = ' + T + '（低）</strong><br>高概率选项被严重放大，第一名占了绝对优势 → 输出<b>确定、保守</b><br>适合：代码生成、翻译、事实问答';
+  } else if (T <= 0.7) {
+    expl.innerHTML = '<strong>Temperature = ' + T + '（中等）</strong><br>概率分布趋于平衡 → 输出<b>既有质量又有变化</b><br>适合：日常对话、总结';
+  } else if (T <= 1.2) {
+    expl.innerHTML = '<strong>Temperature = ' + T + '（偏高）</strong><br>低概率选项也被放大 → 输出<b>有创意但可能偏离</b><br>适合：创意写作、头脑风暴';
+  } else {
+    expl.innerHTML = '<strong>Temperature = ' + T + '（很高）</strong><br>概率分布几乎均匀 → 输出<b>非常随机，可能胡言乱语</b><br>几乎不用';
+  }
+}
+
+// ═══════════ Init ═══════════
+window.addEventListener('load', () => {
+  tokenize();
+  predictNext();
+  updateCtx();
+  buildAttnUI();
+  updateTemp();
+});
+</script>
+</body>
+</html>
