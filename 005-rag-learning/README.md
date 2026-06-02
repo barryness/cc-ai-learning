@@ -1,277 +1,111 @@
-# 🧠 RAG（Retrieval-Augmented Generation）检索增强生成
+# 🧠 RAG 检索增强生成 —— 企业知识库问答系统
 
-> 用人话 + 可运行代码，彻底理解 RAG
-
----
-
-## 一、什么是 RAG？—— 用最接地气的方式理解
-
-### 类比：开卷考试 vs 闭卷考试
-
-| 方式 | 类比 | 代表 |
-|------|------|------|
-| 闭卷考试 | 只能靠记忆回答问题 | 纯 LLM（ChatGPT 直接答） |
-| **开卷考试** | **可以翻书找答案，再作答** | **RAG** |
-
-**RAG = 先翻书（检索），再作答（生成）**
-
-### 为什么不直接问 LLM？
-
-```
-❌ 用户：你们公司明天放假吗？
-   LLM：我训练数据截止到2024年，不知道你们公司的情况...
-   （LLM 没见过你公司内部文档，一脸懵）
-
-✅ 用户：你们公司明天放假吗？
-   RAG：[先搜索内部文档] → "办公政策.doc" 里写着节假日安排
-        [再把文档内容 + 问题一起给 LLM]
-   LLM：根据公司内部文件，明天是正常工作日。
-```
-
-**RAG 解决了 LLM 的三大硬伤：**
-
-| 问题 | RAG 如何解决 |
-|------|-------------|
-| 知识过时（训练截止日期） | 检索最新文档，实时更新知识 |
-| 幻觉（瞎编不存在的事实） | 给 LLM 提供"参考答案"，约束生成 |
-| 没有私有知识 | 接入企业内部文档、数据库 |
-
-### 一句话总结
-
-> **RAG = 检索（Retrieve）+ 增强（Augment）+ 生成（Generate）**
->
-> 从知识库找到相关文档 → 拼进 Prompt → 让 LLM 参考着回答
+> 从零构建本地 PDF 问答系统，5 步渐进演进。
+> 不讲数学公式，只讲代码和直觉。
 
 ---
 
-## 二、RAG 工作流程
+## 项目结构
 
 ```
-                    ┌──────────────────────┐
-                    │     知识库（离线）      │
-                    │  PDF / 网页 / 数据库   │
-                    └──────────┬───────────┘
-                               │
-                    ┌──────────▼───────────┐
-                    │    文档分块 + 向量化    │  ← 提前做好，存入向量数据库
-                    │   存储到向量数据库      │
-                    └──────────────────────┘
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ┌──────────┐       ┌──────────┐       ┌──────────┐       ┌──────────┐
-  │  用户提问  │──────▶│  向量检索  │──────▶│ 拼接Prompt│──────▶│ LLM 生成  │
-  │          │       │ 找相关文档  │       │ 文档+问题  │       │  最终答案  │
-  └──────────┘       └──────────┘       └──────────┘       └──────────┘
-      ↑                   ↑                   ↑                  ↑
-    在线查询           Retrieval          Augmented          Generation
+005-rag-learning/
+├── README.md              ← 你在这里
+├── architecture.md        ← 完整架构文档（为什么需要 RAG → 每个组件怎么做）
+├── tasks.md               ← 5 步任务清单（可打勾跟踪学习进度）
+├── learning_notes.md      ← 教学笔记（概念讲解，配合 Demo 阅读）
+├── index.html             ← 交互学习网页
+└── demo/
+    ├── step1_basic.py         ← Step 1: TF-IDF + 单 PDF 基础版
+    ├── step2_vector_db.py     ← Step 2: ChromaDB 向量数据库
+    ├── step3_multi_pdf.py     ← Step 3: 批量 PDF + 自动分块
+    ├── step4_chat_memory.py   ← Step 4: 多轮对话记忆
+    ├── step5_optimize_recall.py ← Step 5: 混合检索 + 重排序
+    ├── requirements.txt       ← Python 依赖
+    └── data/                  ← 测试文件放这里（PDF/txt/md）
 ```
-
-核心就三步：
-
-1. **检索（Retrieval）**：把用户问题转成向量，在向量数据库中找最相似的文档
-2. **增强（Augmented）**：把找到的文档和用户问题拼成一个大 Prompt
-3. **生成（Generation）**：LLM 基于这个增强后的 Prompt 生成答案
 
 ---
 
-## 三、跑起来！最小 Demo
+## 快速开始
 
-### 第一步：安装依赖
+### 1. 环境搭建
 
 ```bash
-cd rag-learning/demo
-pip install -r requirements.txt
+cd 005-rag-learning/demo
+uv python install 3.12
+uv venv --python 3.12
+source .venv/bin/activate
+uv pip install --python .venv/bin/python -r requirements.txt
 ```
 
-### 第二步：配置 API Key
+### 2. 配置 API Key
 
 ```bash
 cp .env.example .env
-# 编辑 .env 文件，填入你的 API Key
+# 编辑 .env，填入 DEEPSEEK_API_KEY
 ```
 
-推荐用 DeepSeek（便宜）：https://platform.deepseek.com 注册即送额度
-或者用 OpenAI：https://platform.openai.com
+推荐用 [DeepSeek](https://platform.deepseek.com)（便宜，中文好）。
 
-### 第三步：运行
+### 3. 放 PDF 到 data/ 目录
 
 ```bash
-python3 minimal_rag.py
+mkdir -p data
+# 把你的 PDF 文件放进去
 ```
 
-> **注意**：macOS 上默认只有 `python3`，没有 `python` 命令。
+### 4. 按顺序运行
 
-你会看到 5 个问题的完整 RAG 过程：检索了什么文档 → 相关度多少 → AI 怎么回答的。
-
----
-
-### 踩坑记录：中文分词问题
-
-首次运行时，5 个问题中 4 个检索到 0 条文档。排查过程：
-
-1. **观察现象** —— "公司混合办公的政策" 检索到 0 条，"AI Tutor" 却正常工作
-2. **定位原因** —— "AI Tutor" 有空格/英文，TF-IDF 能正确切词；中文没有空格，每个汉字被当成一个"词"，检索失效
-3. **修复方案** —— 引入 jieba 中文分词，在 TF-IDF 之前把中文文本切成词语
-
-修复前后：
-
-```
-修复前：TfidfVectorizer().fit_transform(["公司成立于2024年"])
-        → 每个汉字一个 token，"公""司""成""立"... → 和查询的"混合办公"共同词≈0
-
-修复后：TfidfVectorizer().fit_transform([" ".join(jieba.lcut("公司成立于2024年"))])
-        → "公司 成立 于 2024 年" → 和"混合 办公"匹配到"公司" → 检索正常
-```
-
-**关键启发**：TF-IDF 对不同语言的处理完全不同，中文必须先分词。工业级直接用中文 Embedding 模型（如 `BAAI/bge-large-zh-v1.5`）一步到位绕过这个问题。
-
-
-
-
-## 四、核心概念拆解
-
-### 4.1 向量（Vector / Embedding）
-
-**文本 → 数字数组，让计算机"理解"语义**
-
-```
-"猫"   → [0.12, 0.85, -0.34, 0.67, ...] (384个数字)
-"猫咪" → [0.11, 0.83, -0.32, 0.65, ...]  ← 和"猫"的向量很接近
-"狗"   → [0.25, -0.41, 0.78, -0.13, ...]  ← 和"猫"有一定距离
-"汽车" → [-0.88, 0.03, 0.15, 0.92, ...]  ← 和"猫"完全不接近
-```
-
-**核心直觉**：语义相近的词，向量也相近。这就是为什么可以"搜索意思相近的内容"。
-
-### 4.2 向量数据库（Vector Database）
-
-专门存向量 + 做相似度搜索的数据库。
-
-| 常见选择 | 特点 |
-|---------|------|
-| ChromaDB | 轻量、开源、适合原型和学习 |
-| Milvus | 高性能、分布式、适合生产 |
-| Pinecone | 云服务、免运维、按量付费 |
-| pgvector | PostgreSQL 插件，和业务库一体 |
-
-### 4.3 文档分块（Chunking）
-
-长文档必须切碎再存，不然检索精度很差。
-
-```
-原文档（3000字）："公司成立于2020年...（中间1000字）...年假15天..."
-                                            ↑
-用户问"年假多少天" → 文档其他部分干扰太大，检索效果差
-
-分块后（每块500字）：
-  Chunk 1："公司成立于2020年...技术架构..."
-  Chunk 2："...办公政策：年假15天，带薪病假7天..."
-  → "年假"精准匹配 Chunk 2 ✅
-```
-
-**分块策略对比：**
-
-| 策略 | 做法 | 适用场景 |
-|------|------|---------|
-| 固定大小 | 每N个字符一块 | 文档格式统一 |
-| 语义分块 | 按段落/章节切 | 文档有自然段落 |
-| 递归分块 | 大分隔→小分隔逐级切 | 代码/混合格式 |
-
-### 4.4 检索策略演进
-
-```
-第1代：关键词匹配（TF-IDF / BM25）
-  "今天放假吗" → 搜索包含"放假"的文档
-  问题：同义词搜不到，"休假"不会匹配"放假"
-
-第2代：向量检索（语义搜索）
-  "今天放假吗" → 向量相似 → 也能找到"休假""假期""休息"相关文档
-  问题：精确词搜不到，搜"API v3.0"可能返回 v2.0
-
-第3代：混合检索（向量 + 关键词）
-  两路并行搜索 → 结果融合（RRF算法） → 取长补短 ✅
-```
-
-### 4.5 RRF（Reciprocal Rank Fusion）
-
-把两种检索结果"融合"的算法：
-
-```
-向量检索排名：  A排第1, B排第2, C排第3
-关键词检索排名：B排第1, A排第5, D排第3
-
-融合分数 = 1/(60+向量排名) + 1/(60+关键词排名)
-
-A: 1/61 + 1/65 = 0.0164 + 0.0154 = 0.0318
-B: 1/62 + 1/61 = 0.0161 + 0.0164 = 0.0325  ← B 综合得分最高！
+```bash
+python step1_basic.py        # 理解 RAG 核心链路
+python step2_vector_db.py    # 向量数据库替代 TF-IDF
+python step3_multi_pdf.py    # 支持多个 PDF
+python step4_chat_memory.py  # 多轮对话
+python step5_optimize_recall.py # 优化召回率
 ```
 
 ---
 
-## 五、项目结构
+## 学习路线
 
-```
-rag-learning/
-├── README.md                    # ← 你正在读的文件
-├── docs/
-│   └── summary.md               # 学习总结
-├── demo/
-│   ├── minimal_rag.py           # 🔥 最小可运行 Demo（200行，带详细注释）
-│   ├── requirements.txt         # 依赖：openai + scikit-learn
-│   └── .env.example             # API Key 配置模板
-├── production/
-│   ├── advanced_rag.py          # 🏭 生产级 Demo（ChromaDB + Embedding + 混合检索）
-│   ├── requirements.txt         # 依赖：chromadb + sentence-transformers
-│   └── README.md                # 运行说明
-└── exercises/
-    └── exercises.md             # 8道练习题（基础→进阶→实战）
-```
+| 步骤 | 核心概念 | 检索方式 | 新增能力 |
+|------|---------|---------|---------|
+| Step 1 | RAG 三阶段 | TF-IDF 关键词 | 基础问答 |
+| Step 2 | Embedding + 向量DB | ChromaDB 语义 | 语义搜索 |
+| Step 3 | Chunking 分块 | ChromaDB | 多 PDF + 来源追溯 |
+| Step 4 | Context Window | ChromaDB | 多轮对话记忆 |
+| Step 5 | 混合检索+重排序 | 向量+BM25+CrossEncoder | 高召回率 |
 
 ---
 
-## 六、最小 Demo vs 生产级 对比
+## 系统架构
 
-| 维度 | `demo/minimal_rag.py` | `production/advanced_rag.py` |
-|------|----------------------|------------------------------|
-| 检索算法 | TF-IDF | Embedding 模型 |
-| 存储 | Python 内存列表 | ChromaDB 持久化 |
-| 文档分块 | 整篇文档 | 语义分块(500字/块) |
-| 检索方式 | 纯向量 | 向量 + 关键词 + RRF融合 |
-| 模型依赖 | 无本地模型 | sentence-transformers |
-| 代码量 | ~200行 | ~280行 |
-| 适合 | **学习理解** | **实际项目参考** |
+```
+PDF → 分块 → Embedding → ChromaDB（离线索引）
+                              ↓
+用户问题 → 混合检索 → 重排序 → Prompt 增强 → LLM 生成（在线查询）
+```
+
+详见 `architecture.md`。
 
 ---
 
-## 七、学习路径建议
+## 关键技术决策
 
-```
-1️⃣ 先读这篇 README              ← 你在这一步
-2️⃣ 跑通 demo/minimal_rag.py     ← 理解核心流程
-3️⃣ 逐行读代码注释               ← 每个函数都有详细解释
-4️⃣ 做 exercises 1-5             ← 动手改代码
-5️⃣ 跑通 production/advanced_rag.py  ← 理解工业级实现
-6️⃣ 做 exercises 6-8             ← 深入思考
-7️⃣ 用真实文档跑一遍              ← 换成你自己的文档
-```
+| 决策 | 选择 | 原因 |
+|------|------|------|
+| PDF 解析 | PyMuPDF | 中文提取最稳定 |
+| Embedding | bert-base-chinese | 本地缓存，离线可用 |
+| 向量数据库 | ChromaDB | 轻量，零配置 |
+| LLM | DeepSeek Chat | 便宜，中文好 |
+| 重排序 | Cross-Encoder | 精排效果远好于双塔 |
 
 ---
 
-## 八、关键问题 FAQ
+## 前置知识
 
-**Q: RAG 和 Fine-tuning 有什么区别？**
-A: RAG = 给 LLM 参考资料（外部），Fine-tuning = 改变 LLM 的大脑（内部）。RAG 成本低、可实时更新；Fine-tuning 适合教 LLM 特定的风格或格式。
-
-**Q: 向量数据库一定要用吗？**
-A: 小规模（<1000 文档）用 numpy 内存数组就够了。规模大了必须上向量数据库，因为它们有索引加速（HNSW/IVF）。
-
-**Q: 中文用什么 Embedding 模型？**
-A: 推荐 `BAAI/bge-large-zh-v1.5` 或 `text-embedding-3-small`（OpenAI）。all-MiniLM 主打英文，中文效果一般。
-
-**Q: 检索到的文档不相关怎么办？**
-A: 在 Prompt 里加约束："如果提供的内容无法回答问题，请如实告知"，不要让它瞎编。同时考虑调高检索阈值，过滤低分结果。
-
-**Q: token 是怎么计算的？**
-A: 简单估算——1 个中文字 ≈ 1.5~2 tokens，1 个英文单词 ≈ 1.3 tokens。更精确用 tiktoken 库计算。LLM 按 token 收费且有上下文上限，所以检索的文档不能太多太长。
-
+学习本模块前，建议先完成：
+- `001-llm-learning` — 理解 LLM 基本原理
+- `002-prompt-learning` — 理解 Prompt 设计
+- `003-embedding-learning` — 理解 Embedding 和语义搜索
+- `004-vector-db-learning` — 理解向量数据库
