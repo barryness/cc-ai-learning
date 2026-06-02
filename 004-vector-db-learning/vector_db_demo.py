@@ -15,12 +15,14 @@
   # 2. 创建虚拟环境
   uv venv --python 3.12
 
-  # 3. 激活环境 + 安装依赖
-  source .venv/bin/activate
-  pip install -r requirements.txt
+  # 3. 安装依赖（注意：必须指定 --python，否则 pip 可能指向系统 Python 3.14）
+  uv pip install --python .venv/bin/python -r requirements.txt
 
   # 4. 运行
-  python vector_db_demo.py
+  uv run --python .venv/bin/python vector_db_demo.py
+
+  # 如果没装 uv，换成传统方式：
+  # python3.12 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
 
 Embedding 引擎：bert-base-chinese（768 维，首次运行自动缓存到 ~/.cache/huggingface/）
 """
