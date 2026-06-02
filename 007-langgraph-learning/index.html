@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LangGraph 学习 —— 从线性 Pipeline 到多 Agent 协作</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a;
+    --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --orange: #d2991d; --red: #f85149;
+    --purple: #a371f7; --cyan: #39c5cf; --pink: #db61a2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7;
+  }
+  .hero {
+    background: linear-gradient(135deg, #1a1d27 0%, #1f2937 50%, #111827 100%);
+    border-bottom: 1px solid var(--border); padding: 60px 24px 48px; text-align: center;
+  }
+  .hero h1 { font-size: 2.6em; background: linear-gradient(135deg, #a371f7, var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+  .hero p { color: var(--muted); font-size: 1.1em; max-width: 700px; margin: 0 auto; }
+
+  .tabs {
+    display: flex; gap: 2px; background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 0 24px; position: sticky; top: 0; z-index: 10; overflow-x: auto;
+  }
+  .tab-btn {
+    background: none; border: none; color: var(--muted); padding: 14px 16px;
+    font-size: .89em; cursor: pointer; border-bottom: 2px solid transparent;
+    transition: .2s; font-family: inherit; white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--purple); border-bottom-color: var(--purple); }
+  .tab-content { display: none; padding: 40px 24px; max-width: 1000px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 28px; margin-bottom: 24px;
+  }
+  .card h3 { font-size: 1.2em; margin-bottom: 12px; color: #e6edf3; }
+  .card h4 { font-size: 1.05em; margin: 16px 0 8px; color: #d0d7de; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 768px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+  .callout {
+    padding: 14px 18px; border-radius: 8px; margin: 16px 0; font-size: .93em;
+  }
+  .callout-info { background: rgba(88,166,255,.1); border-left: 3px solid var(--accent); }
+  .callout-warn { background: rgba(210,153,29,.1); border-left: 3px solid var(--orange); }
+  .callout-tip { background: rgba(52,211,153,.1); border-left: 3px solid #34d399; }
+  .callout-danger { background: rgba(248,81,73,.1); border-left: 3px solid var(--red); }
+
+  pre {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px; overflow-x: auto; font-size: .87em; line-height: 1.6;
+  }
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: .88em;
+  }
+  :not(pre) > code {
+    background: rgba(110,118,129,.15); padding: 2px 6px; border-radius: 4px;
+  }
+
+  table {
+    width: 100%; border-collapse: collapse; margin: 16px 0; font-size: .91em;
+  }
+  th, td {
+    text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border);
+  }
+  th { color: var(--muted); font-weight: 600; font-size: .85em; text-transform: uppercase; }
+  tr:hover { background: rgba(255,255,255,.02); }
+
+  .tag {
+    display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: .8em; font-weight: 500;
+  }
+  .tag-green { background: rgba(63,185,80,.15); color: var(--green); }
+  .tag-blue { background: rgba(88,166,255,.15); color: var(--accent); }
+  .tag-purple { background: rgba(163,113,247,.15); color: var(--purple); }
+  .tag-orange { background: rgba(210,153,29,.15); color: var(--orange); }
+  .tag-red { background: rgba(248,81,73,.15); color: var(--red); }
+  .tag-cyan { background: rgba(57,197,207,.15); color: var(--cyan); }
+  .tag-pink { background: rgba(219,97,162,.15); color: var(--pink); }
+
+  .pipeline {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    flex-wrap: wrap; margin: 24px 0;
+  }
+  .pipe-step {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; text-align: center; min-width: 90px; transition: .3s;
+  }
+  .pipe-step:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .pipe-step .icon { font-size: 1.5em; margin-bottom: 4px; }
+  .pipe-step .label { font-weight: 600; font-size: .9em; }
+  .pipe-step .desc { color: var(--muted); font-size: .78em; margin-top: 4px; }
+  .pipe-arrow { color: var(--purple); font-size: 1.4em; font-weight: bold; }
+
+  .code-compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0;
+  }
+  @media (max-width: 768px) { .code-compare { grid-template-columns: 1fr; } }
+  .code-block {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px; overflow-x: auto;
+  }
+  .code-block.bad { border-left: 3px solid var(--red); }
+  .code-block.good { border-left: 3px solid var(--green); }
+  .code-block .label {
+    font-size: .8em; font-weight: 600; margin-bottom: 8px; display: block;
+  }
+
+  .demo-card {
+    border: 1px solid var(--border); border-radius: 10px; padding: 18px;
+    background: var(--bg); transition: .2s;
+  }
+  .demo-card:hover { border-color: var(--accent); }
+  .demo-card h4 { color: var(--accent); margin-bottom: 6px; font-size: 1em; }
+  .demo-card p { color: var(--muted); font-size: .88em; line-height: 1.6; }
+
+  .flow-horizontal {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 16px 0;
+  }
+
+  /* Graph architecture diagrams */
+  .graph-diagram {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    margin: 24px 0; font-size: .85em;
+  }
+  .graph-row {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center;
+  }
+  .graph-node {
+    background: var(--bg); border: 1px solid; border-radius: 10px;
+    padding: 10px 18px; text-align: center; min-width: 80px; font-weight: 600;
+  }
+  .graph-node.start { border-color: var(--green); color: var(--green); }
+  .graph-node.end { border-color: var(--red); color: var(--red); }
+  .graph-node.process { border-color: var(--accent); color: var(--accent); }
+  .graph-node.agent { border-color: var(--purple); color: var(--purple); }
+  .graph-node.supervisor { border-color: var(--orange); color: var(--orange); }
+  .graph-node.condition { border-color: var(--cyan); color: var(--cyan); border-style: dashed; }
+  .graph-arrow { color: var(--muted); font-size: 1.2em; }
+  .graph-arrow-up { color: var(--purple); font-size: 1.2em; }
+
+  .evolve-row {
+    display: flex; gap: 12px; align-items: flex-start; margin: 20px 0; flex-wrap: wrap; justify-content: center;
+  }
+  .evolve-box {
+    flex: 1; min-width: 130px; max-width: 160px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px; text-align: center; transition: .3s;
+  }
+  .evolve-box:hover { border-color: var(--accent); transform: translateY(-3px); }
+  .evolve-box .num { font-size: 2em; font-weight: 700; }
+  .evolve-box .title { font-weight: 600; margin: 6px 0 4px; }
+  .evolve-box .info { font-size: .8em; color: var(--muted); }
+  .evolve-connector {
+    display: flex; align-items: center; color: var(--purple); font-size: 1.2em;
+    min-width: 20px; justify-content: center; padding-top: 30px;
+  }
+
+  .concept-icon {
+    font-size: 2em; text-align: center; margin-bottom: 8px;
+  }
+
+  .memory-diagram {
+    display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin: 20px 0;
+  }
+  .memory-layer {
+    flex: 1; min-width: 240px; max-width: 380px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px; text-align: center;
+  }
+  .memory-layer h4 { margin-bottom: 8px; }
+  .memory-layer p { color: var(--muted); font-size: .85em; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>LangGraph 学习笔记</h1>
+  <p>从"LangChain Agent 不够用了"出发 —— 理解 StateGraph、条件边、循环、多 Agent 协作和 Memory</p>
+</div>
+
+<div class="tabs" id="tabBar">
+  <button class="tab-btn active" data-tab="why">为什么需要 Graph</button>
+  <button class="tab-btn" data-tab="state-node">State + Node</button>
+  <button class="tab-btn" data-tab="edge-memory">Edge + Memory</button>
+  <button class="tab-btn" data-tab="demo1">Demo 1: 简单工作流</button>
+  <button class="tab-btn" data-tab="demo2">Demo 2: 研究 Agent</button>
+  <button class="tab-btn" data-tab="demo3">Demo 3: 多 Agent 系统</button>
+  <button class="tab-btn" data-tab="compare">LangGraph vs LangChain</button>
+  <button class="tab-btn" data-tab="production">生产环境</button>
+</div>
+
+<!-- ═══════════════════════════════════════════ Tab 1: 为什么需要 Graph ═══════ -->
+<div class="tab-content active" id="tab-why">
+
+  <div class="card">
+    <h3>LangChain Agent 的五大痛点</h3>
+    <p style="margin-bottom:16px;">你已经学会了 LangChain LCEL（线性管道 A|B|C），但当你想构建"真正自主的 Agent"时：</p>
+    <table>
+      <tr><th>痛点</th><th>具体表现</th><th>根因</th></tr>
+      <tr>
+        <td><strong>流程硬编码</strong></td>
+        <td>拆解→搜索→总结→报告的步骤写死，无法动态调整</td>
+        <td><span class="tag tag-red">线性管道无分支</span></td>
+      </tr>
+      <tr>
+        <td><strong>没有状态管理</strong></td>
+        <td>中间结果在函数内部，函数结束就丢了，无法追踪 Agent 干了什么</td>
+        <td><span class="tag tag-red">无显式 State</span></td>
+      </tr>
+      <tr>
+        <td><strong>条件逻辑脆弱</strong></td>
+        <td><code>if len(report) &lt; 100: retry</code> 硬编码检查，无法适应所有场景</td>
+        <td><span class="tag tag-red">逻辑散落各处</span></td>
+      </tr>
+      <tr>
+        <td><strong>循环难实现</strong></td>
+        <td>"搜索→不满意→改关键词再搜→满意→继续" 需要手写 while + 退出条件</td>
+        <td><span class="tag tag-red">无原生循环机制</span></td>
+      </tr>
+      <tr>
+        <td><strong>多角色无法建模</strong></td>
+        <td>Research / Write / Review 三个 Agent 怎么交接？手写函数调用顺序</td>
+        <td><span class="tag tag-red">无调度框架</span></td>
+      </tr>
+    </table>
+    <div class="callout callout-warn">
+      <strong>一句话：</strong>LangChain LCEL 擅长"线性 Pipeline"，但<strong>不擅长有循环、有分支、有状态、有多角色的复杂工作流</strong>。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>答案：用"图"来建模 Agent 工作流</h3>
+    <div class="code-compare">
+      <div class="code-block bad">
+        <span class="label" style="color:var(--red);">LangChain LCEL（线性管道）</span>
+        <div class="graph-diagram">
+          <div class="graph-row">
+            <div class="graph-node process">A</div>
+            <div class="graph-arrow">→</div>
+            <div class="graph-node process">B</div>
+            <div class="graph-arrow">→</div>
+            <div class="graph-node process">C</div>
+            <div class="graph-arrow">→</div>
+            <div class="graph-node process">D</div>
+          </div>
+          <div style="color:var(--muted);margin-top:8px;font-size:.85em;">数据从左到右，一步到底，不能回头</div>
+        </div>
+      </div>
+      <div class="code-block good">
+        <span class="label" style="color:var(--green);">LangGraph（状态图）</span>
+        <div class="graph-diagram">
+          <div class="graph-row">
+            <div class="graph-node agent">搜索</div>
+          </div>
+          <div class="graph-arrow">↓</div>
+          <div class="graph-row">
+            <div class="graph-node condition">结果够了？</div>
+          </div>
+          <div style="display:flex;gap:40px;align-items:flex-start;">
+            <div style="text-align:center;">
+              <div class="graph-arrow" style="color:var(--green);">✓ 够了</div>
+              <div class="graph-node end">总结报告</div>
+            </div>
+            <div style="text-align:center;">
+              <div class="graph-arrow" style="color:var(--red);">✗ 不够</div>
+              <div style="color:var(--purple);font-size:.85em;margin-top:4px;">⟲ 回到搜索（循环）</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>图 vs 管道的本质区别</h3>
+    <table>
+      <tr><th></th><th>LangChain LCEL</th><th>LangGraph</th></tr>
+      <tr><td><strong>结构</strong></td><td>线性管道 <code>A|B|C</code></td><td>有向图（节点+边）</td></tr>
+      <tr><td><strong>流程控制</strong></td><td>固定顺序</td><td><span class="tag tag-green">动态路由（条件边）</span></td></tr>
+      <tr><td><strong>循环</strong></td><td><span class="tag tag-red">不支持</span></td><td><span class="tag tag-green">天然支持</span></td></tr>
+      <tr><td><strong>状态</strong></td><td>隐式（管道内传递）</td><td><span class="tag tag-green">显式（State TypedDict）</span></td></tr>
+      <tr><td><strong>可观测</strong></td><td>只能看最终输出</td><td><span class="tag tag-green">每个节点的输入输出都可追踪</span></td></tr>
+      <tr><td><strong>多角色</strong></td><td>需要手动编排</td><td><span class="tag tag-green">通过 State 天然共享</span></td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>生动类比</h3>
+    <div class="grid-2">
+      <div class="demo-card" style="text-align:center;">
+        <div class="concept-icon">🏭</div>
+        <h4>LangChain LCEL = 工厂流水线</h4>
+        <p>产品从 A 站 → B 站 → C 站，固定路线，不能回头。适合标准化、重复性任务。</p>
+      </div>
+      <div class="demo-card" style="text-align:center;">
+        <div class="concept-icon">🏢</div>
+        <h4>LangGraph = 办公室协作</h4>
+        <p>经理（Supervisor）分配任务，员工（Agent）干活，干完交回经理，不满意打回重做（循环！）。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ Tab 2: State + Node ═══════ -->
+<div class="tab-content" id="tab-state-node">
+
+  <div class="card">
+    <h3>State：图的"共享内存"</h3>
+    <p style="margin-bottom:16px;">State 是整个图的数据载体。所有节点都能读写它。定义为一个 <code>TypedDict</code>：</p>
+    <pre><code><span style="color:var(--accent)">from</span> typing <span style="color:var(--accent)">import</span> Annotated, TypedDict
+<span style="color:var(--accent)">from</span> langgraph.graph.message <span style="color:var(--accent)">import</span> add_messages
+
+<span style="color:var(--accent)">class</span> <span style="color:var(--green)">AgentState</span>(TypedDict):
+    messages: <span style="color:var(--purple)">Annotated</span>[list, add_messages]   <span style="color:var(--muted)"># 追加模式：新消息不会覆盖旧消息</span>
+    search_results: str                        <span style="color:var(--muted)"># 覆盖模式：新值直接替换旧值</span>
+    final_answer: str</code></pre>
+
+    <h4>两个关键概念：Reducer（归约器）</h4>
+    <div class="grid-2" style="margin-top:12px;">
+      <div class="demo-card" style="border-top:3px solid var(--purple);">
+        <h4>add_messages（追加模式）</h4>
+        <p>节点 A 返回 <code>{messages: [msg1]}</code>，节点 B 返回 <code>{messages: [msg2]}</code><br>
+        → State.messages = <strong>[msg1, msg2]</strong>（追加，不覆盖）</p>
+      </div>
+      <div class="demo-card" style="border-top:3px solid var(--accent);">
+        <h4>普通字段（覆盖模式）</h4>
+        <p>节点 A 返回 <code>{search_results: "结果A"}</code>，节点 B 返回 <code>{search_results: "结果B"}</code><br>
+        → State.search_results = <strong>"结果B"</strong>（后写的覆盖先写的）</p>
+      </div>
+    </div>
+
+    <div class="callout callout-tip" style="margin-top:12px;">
+      <strong>直觉理解：</strong>State = Agent 的"工作台"。每个节点（工人）从工作台上拿东西，做完放回去。图（Graph）定义了工人之间的协作流程。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Node：图的执行单元</h3>
+    <p style="margin-bottom:16px;">每个 Node 是一个 Python 函数，接收 State，返回要更新的字段：</p>
+    <pre><code><span style="color:var(--accent)">def</span> <span style="color:var(--green)">search_node</span>(state: AgentState) -> dict:
+    <span style="color:var(--muted)"># 1. 读取 State</span>
+    query = state[<span style="color:var(--orange)">"messages"</span>][-1].content
+
+    <span style="color:var(--muted)"># 2. 做处理...</span>
+    result = search_knowledge_base(query)
+
+    <span style="color:var(--muted)"># 3. 返回要更新的字段（不直接修改 State！）</span>
+    <span style="color:var(--accent)">return</span> {
+        <span style="color:var(--orange)">"search_results"</span>: result,
+        <span style="color:var(--orange)">"messages"</span>: [AIMessage(content=result)],
+    }</code></pre>
+
+    <div class="grid-3" style="margin-top:16px;">
+      <div class="demo-card" style="border-top:3px solid var(--green);">
+        <h4>规则 1</h4>
+        <p>Node <strong>不直接修改 State</strong>——返回一个 dict，框架负责合并</p>
+      </div>
+      <div class="demo-card" style="border-top:3px solid var(--accent);">
+        <h4>规则 2</h4>
+        <p>返回值<strong>只包含要更新的字段</strong>——不需要返回整个 State</p>
+      </div>
+      <div class="demo-card" style="border-top:3px solid var(--purple);">
+        <h4>规则 3</h4>
+        <p>一个 Node <strong>只做一件事</strong>——搜索的只搜索，总结的只总结</p>
+      </div>
+    </div>
+
+    <div class="callout callout-info" style="margin-top:12px;">
+      <strong>直觉理解：</strong>Node = 办公室里的一个"岗位"。搜索员看到工作台上有问题 → 搜索 → 把结果放回工作台。写完就放回去，不关心谁接着用。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>State + Node 协同工作示意图</h3>
+    <div class="graph-diagram">
+      <div style="text-align:center;margin-bottom:8px;color:var(--muted);font-size:.85em;">State（工作台）在节点之间流转</div>
+      <div class="graph-row">
+        <div style="border:1px solid var(--border);border-radius:8px;padding:12px;text-align:left;font-size:.82em;min-width:300px;">
+          <div style="color:var(--muted);margin-bottom:4px;">AgentState</div>
+          <div>messages: [HumanMsg("什么是...")]</div>
+          <div>search_results: ""</div>
+          <div>final_answer: ""</div>
+        </div>
+      </div>
+      <div class="graph-arrow">↓</div>
+      <div class="graph-row">
+        <div class="graph-node process">search_node</div>
+      </div>
+      <div class="graph-arrow">↓ 返回 {search_results: "...", messages: [...]}</div>
+      <div class="graph-row">
+        <div style="border:1px solid var(--border);border-radius:8px;padding:12px;text-align:left;font-size:.82em;min-width:300px;">
+          <div style="color:var(--muted);margin-bottom:4px;">AgentState（已更新）</div>
+          <div>messages: [HumanMsg("..."), AIMsg("...")]</div>
+          <div style="color:var(--green);">search_results: "LangGraph 是..."</div>
+          <div>final_answer: ""</div>
+        </div>
+      </div>
+      <div class="graph-arrow">↓</div>
+      <div class="graph-row">
+        <div class="graph-node process">answer_node</div>
+      </div>
+      <div class="graph-arrow">↓</div>
+      <div class="graph-row">
+        <div style="border:1px solid var(--border);border-radius:8px;padding:12px;text-align:left;font-size:.82em;min-width:300px;">
+          <div style="color:var(--muted);margin-bottom:4px;">AgentState（最终）</div>
+          <div>messages: [..., AIMsg("LangGraph 是一个...")]</div>
+          <div>search_results: "LangGraph 是..."</div>
+          <div style="color:var(--green);">final_answer: "LangGraph 是一个构建..."</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ Tab 3: Edge + Memory ═══════ -->
+<div class="tab-content" id="tab-edge-memory">
+
+  <div class="card">
+    <h3>Edge（普通边）：固定路线</h3>
+    <p>A 做完后<strong>必然</strong>去 B。就像工厂的固定传送带。</p>
+    <pre><code>builder.add_edge(<span style="color:var(--orange)">"search"</span>, <span style="color:var(--orange)">"answer"</span>)   <span style="color:var(--muted)"># 搜索完 → 必然去回答</span>
+builder.add_edge(<span style="color:var(--orange)">"answer"</span>, END)        <span style="color:var(--muted)"># 回答完 → 结束</span></code></pre>
+    <div class="graph-diagram">
+      <div class="graph-row">
+        <div class="graph-node start">START</div>
+        <div class="graph-arrow">→</div>
+        <div class="graph-node process">search</div>
+        <div class="graph-arrow">→</div>
+        <div class="graph-node process">answer</div>
+        <div class="graph-arrow">→</div>
+        <div class="graph-node end">END</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Conditional Edge（条件边）：动态路由</h3>
+    <p>A 做完后，<strong>根据 State 内容动态决定</strong>下一步去向。就像分拣机，检查标签后分流。</p>
+    <pre><code><span style="color:var(--accent)">def</span> <span style="color:var(--green)">router</span>(state: AgentState) -> str:
+    <span style="color:var(--muted)"># 看 State 决定去哪——这就是"动态决策"</span>
+    <span style="color:var(--accent)">if</span> state.get(<span style="color:var(--orange)">"search_satisfied"</span>):
+        <span style="color:var(--accent)">return</span> <span style="color:var(--orange)">"answer"</span>    <span style="color:var(--muted)"># 满意 → 去回答</span>
+    <span style="color:var(--accent)">else</span>:
+        <span style="color:var(--accent)">return</span> <span style="color:var(--orange)">"search"</span>    <span style="color:var(--muted)"># 不满意 → 重新搜索（循环！）</span>
+
+builder.add_conditional_edges(
+    <span style="color:var(--orange)">"search"</span>, router,
+    {<span style="color:var(--orange)">"answer"</span>: <span style="color:var(--orange)">"answer"</span>, <span style="color:var(--orange)">"search"</span>: <span style="color:var(--orange)">"search"</span>}
+)</code></pre>
+    <div class="graph-diagram">
+      <div class="graph-row">
+        <div class="graph-node process">search</div>
+      </div>
+      <div class="graph-arrow">↓</div>
+      <div class="graph-row">
+        <div class="graph-node condition">router(state)</div>
+      </div>
+      <div style="display:flex;gap:50px;align-items:flex-start;margin-top:4px;">
+        <div style="text-align:center;">
+          <div style="color:var(--green);">满意 →</div>
+          <div class="graph-node process">answer</div>
+          <div class="graph-arrow">→</div>
+          <div class="graph-node end">END</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="color:var(--red);">不满意 →</div>
+          <div class="graph-node process">search</div>
+          <div style="color:var(--purple);font-size:.8em;margin-top:2px;">⟲ 循环</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Memory 的两个层次</h3>
+    <div class="memory-diagram">
+      <div class="memory-layer" style="border-top:3px solid var(--accent);">
+        <h4>层次 1：Short-term Memory（State）</h4>
+        <p style="margin:8px 0;">一次 <code>invoke()</code> 内，State 在节点间传递</p>
+        <p style="color:var(--muted);">例：搜索结果 → 总结 → 报告<br>都在一次调用内完成</p>
+        <code style="font-size:.8em;">State TypedDict</code>
+      </div>
+      <div class="memory-layer" style="border-top:3px solid var(--purple);">
+        <h4>层次 2：Long-term Memory（Checkpointer）</h4>
+        <p style="margin:8px 0;">跨多次 <code>invoke()</code>，状态持久化</p>
+        <p style="color:var(--muted);">例：第1轮研究"AI趋势"→ 第2轮追问"详细说说第2点"→ Agent 记得上一轮结果</p>
+        <code style="font-size:.8em;">MemorySaver / SqliteSaver</code>
+      </div>
+    </div>
+
+    <h4>Checkpointer 使用</h4>
+    <pre><code><span style="color:var(--accent)">from</span> langgraph.checkpoint.memory <span style="color:var(--accent)">import</span> MemorySaver
+
+checkpointer = MemorySaver()
+graph = builder.compile(checkpointer=checkpointer)
+
+<span style="color:var(--muted)"># 每次调用传入 thread_id（标识一次对话）</span>
+config = {<span style="color:var(--orange)">"configurable"</span>: {<span style="color:var(--orange)">"thread_id"</span>: <span style="color:var(--orange)">"conversation_1"</span>}}
+
+<span style="color:var(--muted)"># 第1轮</span>
+graph.invoke({<span style="color:var(--orange)">"messages"</span>: [HumanMessage(content=<span style="color:var(--orange)">"研究AI趋势"</span>)]}, config)
+
+<span style="color:var(--muted)"># 第2轮（同一个 thread_id，Agent 记得上一轮的所有中间状态！）</span>
+graph.invoke({<span style="color:var(--orange)">"messages"</span>: [HumanMessage(content=<span style="color:var(--orange)">"详细说说第2点"</span>)]}, config)</code></pre>
+
+    <div class="callout callout-tip">
+      <strong>直觉理解：</strong><br>
+      Short-term Memory (State) = 一次会议中的白板——会议结束就擦掉<br>
+      Long-term Memory (Checkpointer) = 会议纪要存档——下次开会可以翻出来看<br>
+      <code>thread_id</code> = 不同会议的编号——"项目A的第3次讨论"
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ Tab 4: Demo 1 ═══════ -->
+<div class="tab-content" id="tab-demo1">
+
+  <div class="card">
+    <h3>Demo 1：简单工作流（问题 → 搜索 → 回答）</h3>
+    <p style="margin-bottom:16px;">这是 LangGraph 的 "Hello World"——最简单的线性工作流。</p>
+
+    <div class="graph-diagram">
+      <div class="graph-row">
+        <div class="graph-node start">START</div>
+        <div class="graph-arrow">→</div>
+        <div class="graph-node process">search<br><small>搜索知识库</small></div>
+        <div class="graph-arrow">→</div>
+        <div class="graph-node process">answer<br><small>生成回答</small></div>
+        <div class="graph-arrow">→</div>
+        <div class="graph-node end">END</div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:16px;">
+      <div>
+        <h4>State 设计（2 字段）</h4>
+        <pre style="font-size:.82em;"><code><span style="color:var(--accent)">class</span> <span style="color:var(--green)">Demo1State</span>(TypedDict):
+    messages: Annotated[list, add_messages]
+    search_results: str</code></pre>
+      </div>
+      <div>
+        <h4>构建图（3 条边）</h4>
+        <pre style="font-size:.82em;"><code>builder = StateGraph(Demo1State)
+builder.add_node(<span style="color:var(--orange)">"search"</span>, search_node)
+builder.add_node(<span style="color:var(--orange)">"answer"</span>, answer_node)
+builder.add_edge(START, <span style="color:var(--orange)">"search"</span>)
+builder.add_edge(<span style="color:var(--orange)">"search"</span>, <span style="color:var(--orange)">"answer"</span>)
+builder.add_edge(<span style="color:var(--orange)">"answer"</span>, END)
+graph = builder.compile()</code></pre>
+      </div>
+    </div>
+
+    <div class="callout callout-info" style="margin-top:12px;">
+      <strong>演示内容：</strong>State 定义（2 字段）、Node 定义（2 个节点）、线性边（无分支、无循环）。<br>
+      和手写 pipeline 功能相同，但 LangGraph 版本<strong>可观测、可扩展</strong>。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>手写版 vs LangGraph 版</h3>
+    <div class="code-compare">
+      <div class="code-block bad">
+        <span class="label" style="color:var(--red);">手写 pipeline</span>
+<pre><code><span style="color:var(--accent)">def</span> <span style="color:var(--green)">ask_question</span>(query):
+    results = search(query)      <span style="color:var(--muted)"># 步骤1</span>
+    answer = llm.invoke(          <span style="color:var(--muted)"># 步骤2</span>
+        <span style="color:var(--green)">f"基于{results}回答{query}"</span>)
+    <span style="color:var(--accent)">return</span> answer
+
+<span style="color:var(--muted)"># 痛点：
+# - 中间状态不可见
+# - 加一步要改整个函数
+# - 没有错误处理</span></code></pre>
+      </div>
+      <div class="code-block good">
+        <span class="label" style="color:var(--green);">LangGraph</span>
+<pre><code>graph = build_demo1()
+result = graph.invoke({
+    <span style="color:var(--orange)">"messages"</span>: [HumanMessage(content=q)],
+    <span style="color:var(--orange)">"search_results"</span>: <span style="color:var(--orange)">""</span>,
+})
+
+<span style="color:var(--muted)"># 优势：
+# - graph.stream() 可看每一步
+# - 加节点只需 add_node + add_edge
+# - 框架提供错误边界</span></code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ Tab 5: Demo 2 ═══════ -->
+<div class="tab-content" id="tab-demo2">
+
+  <div class="card">
+    <h3>Demo 2：研究 Agent（拆解 → 搜索 → 总结 → 报告）</h3>
+    <p style="margin-bottom:16px;">真实的研究任务需要多步骤协作——每步的输出是下一步的输入。</p>
+
+    <div class="graph-diagram">
+      <div class="graph-row">
+        <div class="graph-node start">START</div>
+        <div class="graph-arrow">→</div>
+        <div class="graph-node process">decompose<br><small>LLM拆解问题</small></div>
+        <div class="graph-arrow">→</div>
+        <div class="graph-node process">search<br><small>逐个子问题搜索</small></div>
+        <div class="graph-arrow">→</div>
+        <div class="graph-node process">summarize<br><small>综合搜索结果</small></div>
+        <div class="graph-arrow">→</div>
+        <div class="graph-node process">report<br><small>生成结构化报告</small></div>
+        <div class="graph-arrow">→</div>
+        <div class="graph-node end">END</div>
+      </div>
+    </div>
+
+    <h4 style="margin-top:20px;">State 字段随流程"生长"</h4>
+    <div class="flow-horizontal" style="justify-content:center;font-size:.88em;">
+      <span class="tag tag-blue">main_question</span>
+      <span style="color:var(--muted);">→</span>
+      <span class="tag tag-purple">sub_questions[]</span>
+      <span style="color:var(--muted);">→</span>
+      <span class="tag tag-orange">search_results</span>
+      <span style="color:var(--muted);">→</span>
+      <span class="tag tag-cyan">summary</span>
+      <span style="color:var(--muted);">→</span>
+      <span class="tag tag-green">final_report</span>
+    </div>
+    <p style="color:var(--muted);font-size:.85em;text-align:center;margin-top:8px;">
+      每个节点的输出被下一个节点读取——State 就是"交接单"。
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>与 Demo 1 的关键区别</h3>
+    <table>
+      <tr><th></th><th>Demo 1</th><th>Demo 2</th></tr>
+      <tr><td><strong>节点数</strong></td><td>2</td><td>4</td></tr>
+      <tr><td><strong>复杂度</strong></td><td>一问一答</td><td>拆解 → 搜索 → 总结 → 报告</td></tr>
+      <tr><td><strong>State 字段</strong></td><td>2</td><td>5（每步一个产出）</td></tr>
+      <tr><td><strong>LLM 调用次数</strong></td><td>1 次（仅回答）</td><td>4 次（拆解/总结/报告 + 搜索逻辑）</td></tr>
+      <tr><td><strong>LLM 角色</strong></td><td>仅回答</td><td>拆解、总结、报告——LLM 作为"处理器"</td></tr>
+    </table>
+    <div class="callout callout-tip">
+      <strong>核心洞察：</strong>Demo 2 展示了 State 作为"交接单"的模式——decompose 写入 sub_questions → search 读取 sub_questions 写入 search_results → summarize 读取 search_results 写入 summary → report 读取 summary 写入 final_report。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ Tab 6: Demo 3 ═══════ -->
+<div class="tab-content" id="tab-demo3">
+
+  <div class="card">
+    <h3>Demo 3：多 Agent 协作系统</h3>
+    <p style="margin-bottom:16px;">Supervisor 模式 + Reviewer 循环 + Memory —— 这是 LangChain 做不到的。</p>
+
+    <div class="graph-diagram">
+      <div class="graph-row">
+        <div class="graph-node start">START</div>
+        <div class="graph-arrow">→</div>
+        <div class="graph-node supervisor">Supervisor<br><small>项目经理</small></div>
+      </div>
+      <div class="graph-arrow">↓ ↙ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ↓ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ↘</div>
+      <div class="graph-row" style="gap:30px;">
+        <div style="text-align:center;">
+          <div class="graph-node agent">Research<br><small>研究员</small></div>
+          <div style="font-size:.75em;color:var(--muted);margin-top:2px;">搜索+分析</div>
+        </div>
+        <div style="text-align:center;">
+          <div class="graph-node agent">Writer<br><small>写手</small></div>
+          <div style="font-size:.75em;color:var(--muted);margin-top:2px;">撰写报告</div>
+        </div>
+        <div style="text-align:center;">
+          <div class="graph-node agent">Reviewer<br><small>审核员</small></div>
+          <div style="font-size:.75em;color:var(--muted);margin-top:2px;">质量检查</div>
+        </div>
+      </div>
+      <div class="graph-arrow" style="margin-top:4px;">↖ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ↑ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ↗</div>
+      <div style="color:var(--purple);font-size:.85em;">完成后都回到 Supervisor（循环）</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>典型执行流程</h3>
+    <div style="font-size:.9em;line-height:2.2;padding:12px 0;">
+      <div>👤 <strong>User:</strong> "写一篇 AI 趋势报告"</div>
+      <div style="margin-left:20px;">→ 🧑‍💼 <strong>Supervisor:</strong> "先派 Research Agent 查资料"</div>
+      <div style="margin-left:40px;">→ 🔬 <strong>Research Agent:</strong> 搜索 + 分析 → 研究结果写入 State</div>
+      <div style="margin-left:20px;">→ 🧑‍💼 <strong>Supervisor:</strong> "资料有了，派 Writer 写报告"</div>
+      <div style="margin-left:40px;">→ ✍️ <strong>Writer Agent:</strong> 基于研究结果撰写 → 草稿写入 State</div>
+      <div style="margin-left:20px;">→ 🧑‍💼 <strong>Supervisor:</strong> "报告写好了，派 Reviewer 审核"</div>
+      <div style="margin-left:40px;">→ 🔍 <strong>Reviewer Agent:</strong> 审核质量</div>
+      <div style="margin-left:60px;color:var(--green);">✅ 通过 → FINISH</div>
+      <div style="margin-left:60px;color:var(--red);">❌ 打回 → Supervisor 派 Writer 修改（循环！）</div>
+    </div>
+    <div class="callout callout-warn">
+      <strong>这就是 LangChain 做不到的部分：</strong>审核不通过 → 打回 Writer 重写 → 再审核。这是一个<strong>循环</strong>，LangChain LCEL 无法建模。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>关键设计决策</h3>
+    <div class="grid-2">
+      <div class="demo-card" style="border-top:3px solid var(--orange);">
+        <h4>为什么用 Supervisor 而不是并行？</h4>
+        <p style="margin-top:8px;">
+          并行执行：研究、写作、审核同时进行<br>
+          <span style="color:var(--red);">→ 但写作需要研究结果、审核需要写作结果 → 不能并行！</span><br><br>
+          Supervisor 模式：按依赖顺序调度<br>
+          <span style="color:var(--green);">→ 研究完成 → 写作 → 审核</span>
+        </p>
+      </div>
+      <div class="demo-card" style="border-top:3px solid var(--purple);">
+        <h4>为什么需要 Reviewer？</h4>
+        <p style="margin-top:8px;">
+          没有 Reviewer：Writer 写什么就是什么，质量不可控<br>
+          <span style="color:var(--red);">→ 可能输出格式混乱、遗漏关键信息</span><br><br>
+          有 Reviewer：独立的质量关卡<br>
+          <span style="color:var(--green);">→ 通过/打回 + 具体修改意见 → 质量闭环</span>
+        </p>
+      </div>
+      <div class="demo-card" style="border-top:3px solid var(--red);">
+        <h4>防无限循环</h4>
+        <p style="margin-top:8px;">
+          <code>revision_count</code> 追踪修改次数<br>
+          达到上限（如 3 次）→ 强制 FINISH<br>
+          <span style="color:var(--green);">→ 即使不完全满意也结束，避免死循环</span>
+        </p>
+      </div>
+      <div class="demo-card" style="border-top:3px solid var(--accent);">
+        <h4>Memory：跨对话记忆</h4>
+        <p style="margin-top:8px;">
+          第1轮：研究 AI 趋势 → 搜索 → 写报告<br>
+          第2轮：追问"详细说说第2点"<br>
+          <span style="color:var(--green);">→ Agent 记得上一轮的所有中间状态<br>不需要重新搜索！</span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>三个 Demo 的演进路径</h3>
+    <div class="evolve-row">
+      <div class="evolve-box">
+        <div class="num" style="color:var(--accent);">1</div>
+        <div class="title">简单工作流</div>
+        <div class="info">2 节点线性<br>State + Node + Edge</div>
+      </div>
+      <div class="evolve-connector">→</div>
+      <div class="evolve-box">
+        <div class="num" style="color:var(--purple);">2</div>
+        <div class="title">研究 Agent</div>
+        <div class="info">4 节点线性<br>多步骤 + State 流转</div>
+      </div>
+      <div class="evolve-connector">→</div>
+      <div class="evolve-box">
+        <div class="num" style="color:var(--orange);">3</div>
+        <div class="title">多 Agent 系统</div>
+        <div class="info">Supervisor 模式<br>循环 + Memory</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ Tab 7: LangGraph vs LangChain ═══ -->
+<div class="tab-content" id="tab-compare">
+
+  <div class="card">
+    <h3>什么时候用哪个？</h3>
+    <div style="text-align:center;font-size:.91em;line-height:2.4;margin:20px 0;">
+      <div style="margin-bottom:12px;font-size:1.1em;"><strong>你的应用流程是？</strong></div>
+      <div style="display:flex;gap:12px;text-align:center;justify-content:center;flex-wrap:wrap;">
+        <div style="flex:1;min-width:180px;max-width:240px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:20px;">
+          <div style="font-size:1.5em;margin-bottom:8px;">➡️</div>
+          <div class="tag tag-green" style="font-size:.9em;padding:6px 14px;">线性流程</div>
+          <div style="margin:10px 0;color:var(--muted);font-size:.85em;">RAG、翻译、摘要</div>
+          <div style="font-weight:600;">LangChain LCEL</div>
+        </div>
+        <div style="flex:1;min-width:180px;max-width:240px;background:var(--bg);border:1px solid var(--purple);border-radius:10px;padding:20px;">
+          <div style="font-size:1.5em;margin-bottom:8px;">🔄</div>
+          <div class="tag tag-purple" style="font-size:.9em;padding:6px 14px;">有循环</div>
+          <div style="margin:10px 0;color:var(--muted);font-size:.85em;">搜索→不满意→再搜</div>
+          <div style="font-weight:600;">LangGraph</div>
+        </div>
+        <div style="flex:1;min-width:180px;max-width:240px;background:var(--bg);border:1px solid var(--orange);border-radius:10px;padding:20px;">
+          <div style="font-size:1.5em;margin-bottom:8px;">🔀</div>
+          <div class="tag tag-orange" style="font-size:.9em;padding:6px 14px;">动态分支</div>
+          <div style="margin:10px 0;color:var(--muted);font-size:.85em;">技术问题→技术Agent</div>
+          <div style="font-weight:600;">LangGraph</div>
+        </div>
+        <div style="flex:1;min-width:180px;max-width:240px;background:var(--bg);border:1px solid var(--cyan);border-radius:10px;padding:20px;">
+          <div style="font-size:1.5em;margin-bottom:8px;">👥</div>
+          <div class="tag tag-cyan" style="font-size:.9em;padding:6px 14px;">多角色协作</div>
+          <div style="margin:10px 0;color:var(--muted);font-size:.85em;">研究→写作→审核</div>
+          <div style="font-weight:600;">LangGraph</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>两者配合使用（不是替代关系！）</h3>
+    <div class="callout callout-tip">
+      <strong>LangGraph 内部大量使用 LangChain 的组件。</strong>LangChain 提供"积木块"（Prompt、LLM、Retriever、Tool...），LangGraph 提供"图纸"（循环、条件、状态图）。
+    </div>
+    <pre><code><span style="color:var(--muted)"># LangGraph 的 Node 里用 LangChain 的组件</span>
+<span style="color:var(--accent)">def</span> <span style="color:var(--green)">researcher_node</span>(state):
+    <span style="color:var(--accent)">from</span> langchain_openai <span style="color:var(--accent)">import</span> ChatOpenAI
+    <span style="color:var(--accent)">from</span> langchain_core.prompts <span style="color:var(--accent)">import</span> ChatPromptTemplate
+
+    llm = ChatOpenAI(...)                          <span style="color:var(--muted)"># LangChain 组件</span>
+    prompt = ChatPromptTemplate.from_messages([...]) <span style="color:var(--muted)"># LangChain 组件</span>
+    chain = prompt | llm | StrOutputParser()        <span style="color:var(--muted)"># LangChain LCEL</span>
+
+    <span style="color:var(--accent)">return</span> {<span style="color:var(--orange)">"research_findings"</span>: chain.invoke(state)}
+
+<span style="color:var(--muted)"># LangGraph 负责"什么时候调用谁"（流程控制）</span>
+<span style="color:var(--muted)"># LangChain 负责"怎么调用"（组件实现）</span></code></pre>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ Tab 8: 生产环境 ═══════ -->
+<div class="tab-content" id="tab-production">
+
+  <div class="card">
+    <h3>生产环境五大注意事项</h3>
+
+    <div class="grid-2">
+      <div class="demo-card" style="border-top:3px solid var(--red);">
+        <h4>1. 防止无限循环</h4>
+        <pre style="font-size:.8em;margin-top:8px;"><code><span style="color:var(--accent)">class</span> <span style="color:var(--green)">State</span>(TypedDict):
+    revision_count: int
+
+<span style="color:var(--accent)">def</span> <span style="color:var(--green)">supervisor</span>(state):
+    <span style="color:var(--accent)">if</span> state[<span style="color:var(--orange)">"revision_count"</span>] > 3:
+        <span style="color:var(--accent)">return</span> <span style="color:var(--orange)">"FINISH"</span>  <span style="color:var(--muted)"># 强制结束</span></code></pre>
+      </div>
+      <div class="demo-card" style="border-top:3px solid var(--orange);">
+        <h4>2. 错误处理</h4>
+        <pre style="font-size:.8em;margin-top:8px;"><code><span style="color:var(--accent)">def</span> <span style="color:var(--green)">safe_node</span>(state):
+    <span style="color:var(--accent)">try</span>:
+        result = risky_op(state)
+        <span style="color:var(--accent)">return</span> {<span style="color:var(--orange)">"output"</span>: result}
+    <span style="color:var(--accent)">except</span> Exception <span style="color:var(--accent)">as</span> e:
+        <span style="color:var(--accent)">return</span> {<span style="color:var(--orange)">"messages"</span>: [AIMessage(
+            content=<span style="color:var(--green)">f"节点失败: {e}"</span>)]}</code></pre>
+      </div>
+      <div class="demo-card" style="border-top:3px solid var(--accent);">
+        <h4>3. 超时控制</h4>
+        <pre style="font-size:.8em;margin-top:8px;"><code><span style="color:var(--accent)">def</span> <span style="color:var(--green)">search_with_timeout</span>(state):
+    signal.alarm(30)  <span style="color:var(--muted)"># 30 秒超时</span>
+    <span style="color:var(--accent)">try</span>:
+        result = search(state)
+        signal.alarm(0)
+        <span style="color:var(--accent)">return</span> result
+    <span style="color:var(--accent)">except</span> TimeoutError:
+        <span style="color:var(--accent)">return</span> {<span style="color:var(--orange)">"search_results"</span>: <span style="color:var(--orange)">"超时"</span>}</code></pre>
+      </div>
+      <div class="demo-card" style="border-top:3px solid var(--green);">
+        <h4>4. Checkpointer 选择</h4>
+        <table style="font-size:.82em;margin-top:8px;">
+          <tr><th>类型</th><th>场景</th></tr>
+          <tr><td><code>MemorySaver</code></td><td>开发/测试，重启丢失</td></tr>
+          <tr><td><code>SqliteSaver</code></td><td>单机部署，持久化</td></tr>
+          <tr><td><code>PostgresSaver</code></td><td>生产环境，多实例</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>5. 可观测性：stream() 模式</h3>
+    <p style="margin-bottom:12px;">逐步观察每个节点的输入输出——这是手写 pipeline 做不到的：</p>
+    <pre><code><span style="color:var(--accent)">for</span> step <span style="color:var(--accent)">in</span> graph.stream(initial_state):
+    <span style="color:var(--accent)">for</span> node_name, output <span style="color:var(--accent)">in</span> step.items():
+        print(<span style="color:var(--green)">f"[{node_name}] {output}"</span>)
+
+<span style="color:var(--muted)"># 输出示例：
+# [search] {'search_results': 'LangGraph 是...'}
+# [answer] {'messages': [AIMessage('LangGraph 是一个构建...')]}</span></code></pre>
+    <div class="callout callout-info">
+      每个节点的输入输出都可追踪 → 调试 Agent 行为不再是"黑盒"。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>核心收获</h3>
+    <div class="grid-2">
+      <div>
+        <h4>LangGraph 做了什么？</h4>
+        <ul style="padding-left:20px;color:var(--muted);font-size:.9em;line-height:2;">
+          <li>把流程控制 → <strong>图结构可视化</strong></li>
+          <li>把状态管理 → <strong>显式 State 类型</strong></li>
+          <li>把条件路由 → <strong>Conditional Edge + Router 函数</strong></li>
+          <li>把循环逻辑 → <strong>图的天然能力</strong></li>
+          <li>把多角色协作 → <strong>Supervisor + Agent 模式</strong></li>
+          <li>把跨对话记忆 → <strong>Checkpointer + thread_id</strong></li>
+        </ul>
+      </div>
+      <div>
+        <h4>核心原则</h4>
+        <ul style="padding-left:20px;color:var(--muted);font-size:.9em;line-height:2;">
+          <li>LangGraph 不是替代 LangChain——是<strong>互补</strong></li>
+          <li>线性任务用 LangChain LCEL，有循环/分支用 LangGraph</li>
+          <li>State 是核心——定义清楚"数据长什么样"就成功了一半</li>
+          <li>先画图再写代码——图结构清晰了，代码自然清晰</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout callout-tip" style="margin-top:12px;">
+      <strong>一句话总结：</strong>LangGraph 的价值 = 让流程控制"可视化"和"可编程"。不是写死 A→B→C，而是定义"在什么状态下、谁去干什么、干完去哪"。
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>配套资源</h3>
+    <table>
+      <tr><th>资源</th><th>说明</th></tr>
+      <tr><td><code>langgraph_guide.md</code></td><td>完整教学指南（11 章）</td></tr>
+      <tr><td><code>langgraph_demo.py</code></td><td>3 个可运行 Demo（<code>python langgraph_demo.py</code>）</td></tr>
+      <tr><td><code>006-langchain-learning</code></td><td>前置知识：LangChain LCEL、Tool Calling</td></tr>
+    </table>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>
