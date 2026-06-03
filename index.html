@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Learning Workspace —— 从 LLM 到 Multi-Agent 的系统学习</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a;
+    --text: #c9d1d9; --muted: #8b949e;
+    --blue: #58a6ff; --cyan: #39c5cf; --teal: #2dd4bf; --green: #3fb950;
+    --orange: #d2991d; --amber: #f0883e; --purple: #a371f7; --pink: #db61a2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, #0f1117 0%, #161b22 30%, #1a1d27 60%, #111827 100%);
+    border-bottom: 1px solid var(--border); padding: 80px 24px 64px; text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+    background: radial-gradient(ellipse at 30% 50%, rgba(88,166,255,0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 50%, rgba(163,113,247,0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(63,185,80,0.04) 0%, transparent 40%);
+    pointer-events: none;
+  }
+  .hero h1 {
+    font-size: 2.8em; font-weight: 800; position: relative;
+    background: linear-gradient(135deg, var(--blue), var(--purple), var(--pink));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 16px;
+  }
+  .hero .subtitle {
+    color: var(--muted); font-size: 1.15em; max-width: 650px; margin: 0 auto 32px;
+    position: relative;
+  }
+  .hero .stats {
+    display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; position: relative;
+  }
+  .hero .stat {
+    text-align: center;
+  }
+  .hero .stat .num {
+    font-size: 2em; font-weight: 800;
+    background: linear-gradient(135deg, var(--blue), var(--cyan));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .hero .stat .label { color: var(--muted); font-size: .85em; }
+
+  /* ── Section ── */
+  .section {
+    max-width: 1200px; margin: 0 auto; padding: 56px 24px;
+  }
+  .section-title {
+    font-size: 1.6em; font-weight: 700; text-align: center; margin-bottom: 8px;
+  }
+  .section-sub {
+    color: var(--muted); text-align: center; margin-bottom: 40px; font-size: .95em;
+  }
+
+  /* ── Learning Path ── */
+  .path-wrapper { overflow-x: auto; padding: 16px 0 32px; }
+  .path {
+    display: flex; align-items: center; gap: 0; min-width: max-content;
+    justify-content: center; padding: 0 16px;
+  }
+  .path-node {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    text-decoration: none; color: var(--text); transition: transform .2s;
+    min-width: 72px;
+  }
+  .path-node:hover { transform: translateY(-4px); }
+  .path-dot {
+    width: 40px; height: 40px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; font-weight: 700; font-size: .8em;
+    color: #fff; flex-shrink: 0;
+  }
+  .path-label {
+    font-size: .72em; color: var(--muted); text-align: center; line-height: 1.3;
+  }
+  .path-line {
+    width: 32px; height: 2px; flex-shrink: 0; margin: 0 4px;
+    margin-bottom: 24px;
+  }
+
+  /* ── Module Cards ── */
+  .modules-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+  }
+  @media (max-width: 900px) { .modules-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .modules-grid { grid-template-columns: 1fr; } }
+
+  .module-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 24px; text-decoration: none; color: var(--text);
+    transition: transform .2s, border-color .2s, box-shadow .2s;
+    position: relative; overflow: hidden;
+  }
+  .module-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  }
+  .module-card .num {
+    font-size: .78em; font-weight: 700; color: var(--muted); margin-bottom: 8px;
+    letter-spacing: .5px;
+  }
+  .module-card .title {
+    font-size: 1.15em; font-weight: 700; margin-bottom: 8px;
+  }
+  .module-card .desc {
+    font-size: .85em; color: var(--muted); line-height: 1.6; margin-bottom: 14px;
+  }
+  .module-card .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .module-card .tag {
+    font-size: .75em; padding: 2px 10px; border-radius: 20px;
+  }
+  .module-card .status {
+    position: absolute; top: 20px; right: 20px; font-size: .72em;
+    padding: 2px 10px; border-radius: 20px; font-weight: 600;
+  }
+  .module-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  }
+
+  /* Card accent colors */
+  .mod-001:hover { border-color: var(--blue); }
+  .mod-001::before { background: var(--blue); }
+  .mod-002:hover { border-color: var(--cyan); }
+  .mod-002::before { background: var(--cyan); }
+  .mod-003:hover { border-color: var(--teal); }
+  .mod-003::before { background: var(--teal); }
+  .mod-004:hover { border-color: var(--green); }
+  .mod-004::before { background: var(--green); }
+  .mod-005:hover { border-color: var(--orange); }
+  .mod-005::before { background: var(--orange); }
+  .mod-006:hover { border-color: var(--amber); }
+  .mod-006::before { background: var(--amber); }
+  .mod-007:hover { border-color: var(--purple); }
+  .mod-007::before { background: var(--purple); }
+  .mod-008:hover { border-color: var(--pink); }
+  .mod-008::before { background: var(--pink); }
+  .mod-009:hover { border-color: #fbbf24; }
+  .mod-009::before { background: #fbbf24; }
+  .mod-010:hover { border-color: var(--teal); }
+  .mod-010::before { background: var(--teal); }
+  .mod-011:hover { border-color: #60a5fa; }
+  .mod-011::before { background: #60a5fa; }
+
+  /* Tag accent colors */
+  .tag-blue { background: rgba(88,166,255,0.12); color: var(--blue); }
+  .tag-cyan { background: rgba(57,197,207,0.12); color: var(--cyan); }
+  .tag-teal { background: rgba(45,212,191,0.12); color: var(--teal); }
+  .tag-green { background: rgba(63,185,80,0.12); color: var(--green); }
+  .tag-orange { background: rgba(210,153,29,0.12); color: var(--orange); }
+  .tag-amber { background: rgba(240,136,62,0.12); color: var(--amber); }
+  .tag-purple { background: rgba(163,113,247,0.12); color: var(--purple); }
+  .tag-pink { background: rgba(219,97,162,0.12); color: var(--pink); }
+
+  .status-done { background: rgba(63,185,80,0.12); color: var(--green); }
+
+  /* ── Phases ── */
+  .phase-section { margin-bottom: 48px; }
+  .phase-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+  }
+  .phase-badge {
+    padding: 6px 16px; border-radius: 20px; font-weight: 700; font-size: .85em;
+  }
+  .phase-found { background: rgba(88,166,255,0.1); color: var(--blue); border: 1px solid rgba(88,166,255,0.2); }
+  .phase-inter { background: rgba(210,153,29,0.1); color: var(--orange); border: 1px solid rgba(210,153,29,0.2); }
+  .phase-adv { background: rgba(163,113,247,0.1); color: var(--purple); border: 1px solid rgba(163,113,247,0.2); }
+  .phase-label { color: var(--muted); font-size: .9em; }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1px solid var(--border); padding: 32px 24px; text-align: center;
+    color: var(--muted); font-size: .85em;
+  }
+  .footer a { color: var(--blue); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  Hero                                                       -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="hero">
+  <h1>AI Learning Workspace</h1>
+  <p class="subtitle">
+    从 LLM 基础到 Multi-Agent 协作 —— 11 个渐进式模块，每个概念配可运行 Demo 和交互学习网页
+  </p>
+  <div class="stats">
+    <div class="stat">
+      <div class="num">11</div>
+      <div class="label">学习模块</div>
+    </div>
+    <div class="stat">
+      <div class="num">11</div>
+      <div class="label">交互网页</div>
+    </div>
+    <div class="stat">
+      <div class="num">100%</div>
+      <div class="label">完成度</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  Learning Path                                              -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="section" style="padding-bottom: 0;">
+  <h2 class="section-title">学习路径</h2>
+  <p class="section-sub">从底层概念到架构设计，渐进式深入</p>
+
+  <div class="path-wrapper">
+    <div class="path">
+      <a class="path-node" href="001-llm-learning/index.html">
+        <div class="path-dot" style="background:var(--blue);">LLM</div>
+        <span class="path-label">LLM 基础</span>
+      </a>
+      <div class="path-line" style="background:linear-gradient(90deg,var(--blue),var(--cyan));"></div>
+      <a class="path-node" href="002-prompt-learning/index.html">
+        <div class="path-dot" style="background:var(--cyan);">P</div>
+        <span class="path-label">Prompt</span>
+      </a>
+      <div class="path-line" style="background:linear-gradient(90deg,var(--cyan),var(--teal));"></div>
+      <a class="path-node" href="003-embedding-learning/index.html">
+        <div class="path-dot" style="background:var(--teal);">E</div>
+        <span class="path-label">Embedding</span>
+      </a>
+      <div class="path-line" style="background:linear-gradient(90deg,var(--teal),var(--green));"></div>
+      <a class="path-node" href="004-vector-db-learning/index.html">
+        <div class="path-dot" style="background:var(--green);">V</div>
+        <span class="path-label">Vector DB</span>
+      </a>
+      <div class="path-line" style="background:linear-gradient(90deg,var(--green),var(--orange));"></div>
+      <a class="path-node" href="005-rag-learning/index.html">
+        <div class="path-dot" style="background:var(--orange);">R</div>
+        <span class="path-label">RAG</span>
+      </a>
+      <div class="path-line" style="background:linear-gradient(90deg,var(--orange),var(--amber));"></div>
+      <a class="path-node" href="006-langchain-learning/index.html">
+        <div class="path-dot" style="background:var(--amber);">LC</div>
+        <span class="path-label">LangChain</span>
+      </a>
+      <div class="path-line" style="background:linear-gradient(90deg,var(--amber),var(--purple));"></div>
+      <a class="path-node" href="007-langgraph-learning/index.html">
+        <div class="path-dot" style="background:var(--purple);">LG</div>
+        <span class="path-label">LangGraph</span>
+      </a>
+      <div class="path-line" style="background:linear-gradient(90deg,var(--purple),var(--pink));"></div>
+      <a class="path-node" href="008-mcp-learning/index.html">
+        <div class="path-dot" style="background:var(--pink);">MCP</div>
+        <span class="path-label">MCP</span>
+      </a>
+      <div class="path-line" style="background:linear-gradient(90deg,var(--pink),#fbbf24);"></div>
+      <a class="path-node" href="009-agent-learning/index.html">
+        <div class="path-dot" style="background:#fbbf24;">Ag</div>
+        <span class="path-label">Agent</span>
+      </a>
+      <div class="path-line" style="background:linear-gradient(90deg,#fbbf24,var(--teal));"></div>
+      <a class="path-node" href="010-multi-agent-learning/index.html">
+        <div class="path-dot" style="background:var(--teal);">MA</div>
+        <span class="path-label">Multi-Agent</span>
+      </a>
+      <div class="path-line" style="background:linear-gradient(90deg,var(--teal),#60a5fa);"></div>
+      <a class="path-node" href="011-ai-coding-learning/index.html">
+        <div class="path-dot" style="background:#60a5fa;">AC</div>
+        <span class="path-label">AI Coding</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  Module Cards by Phase                                      -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="section">
+
+  <!-- ── 基础阶段 ── -->
+  <div class="phase-section">
+    <div class="phase-header">
+      <span class="phase-badge phase-found">基础阶段</span>
+      <span class="phase-label">掌握 AI 开发的核心概念和工具</span>
+    </div>
+    <div class="modules-grid">
+
+      <a class="module-card mod-001" href="001-llm-learning/index.html">
+        <span class="status status-done">完成</span>
+        <div class="num">001</div>
+        <div class="title">LLM 基础</div>
+        <div class="desc">LLM API 调用、Token 机制、Temperature 等核心概念，配有可交互 Playground</div>
+        <div class="tags">
+          <span class="tag tag-blue">API</span>
+          <span class="tag tag-blue">Token</span>
+          <span class="tag tag-blue">Temperature</span>
+        </div>
+      </a>
+
+      <a class="module-card mod-002" href="002-prompt-learning/index.html">
+        <span class="status status-done">完成</span>
+        <div class="num">002</div>
+        <div class="title">Prompt 工程</div>
+        <div class="desc">Prompt 设计原则、模板技巧、Few-shot/Chain-of-Thought 等高级策略</div>
+        <div class="tags">
+          <span class="tag tag-cyan">Few-shot</span>
+          <span class="tag tag-cyan">CoT</span>
+          <span class="tag tag-cyan">模板</span>
+        </div>
+      </a>
+
+      <a class="module-card mod-003" href="003-embedding-learning/index.html">
+        <span class="status status-done">完成</span>
+        <div class="num">003</div>
+        <div class="title">Embedding</div>
+        <div class="desc">文本向量化原理、语义相似度计算、sentence-transformers 真实模型 Demo</div>
+        <div class="tags">
+          <span class="tag tag-teal">向量化</span>
+          <span class="tag tag-teal">相似度</span>
+          <span class="tag tag-teal">ST</span>
+        </div>
+      </a>
+
+      <a class="module-card mod-004" href="004-vector-db-learning/index.html">
+        <span class="status status-done">完成</span>
+        <div class="num">004</div>
+        <div class="title">Vector DB</div>
+        <div class="desc">ChromaDB 入门、向量存储与检索、主流向量数据库对比分析</div>
+        <div class="tags">
+          <span class="tag tag-green">ChromaDB</span>
+          <span class="tag tag-green">检索</span>
+          <span class="tag tag-green">对比</span>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- ── 进阶阶段 ── -->
+  <div class="phase-section">
+    <div class="phase-header">
+      <span class="phase-badge phase-inter">进阶阶段</span>
+      <span class="phase-label">掌握 AI 框架和协议，构建 LLM 应用</span>
+    </div>
+    <div class="modules-grid">
+
+      <a class="module-card mod-005" href="005-rag-learning/index.html">
+        <span class="status status-done">完成</span>
+        <div class="num">005</div>
+        <div class="title">RAG 检索增强生成</div>
+        <div class="desc">5 步渐进式 RAG 系统：检索 → 生成 → 评估，从最简到生产级</div>
+        <div class="tags">
+          <span class="tag tag-orange">检索</span>
+          <span class="tag tag-orange">生成</span>
+          <span class="tag tag-orange">评估</span>
+        </div>
+      </a>
+
+      <a class="module-card mod-006" href="006-langchain-learning/index.html">
+        <span class="status status-done">完成</span>
+        <div class="num">006</div>
+        <div class="title">LangChain 框架</div>
+        <div class="desc">7 大核心概念（LLM/Prompt/OutputParser/Tool/Retriever/Chain/Runnable）+ RAG 重构</div>
+        <div class="tags">
+          <span class="tag tag-amber">LCEL</span>
+          <span class="tag tag-amber">Chain</span>
+          <span class="tag tag-amber">Runnable</span>
+        </div>
+      </a>
+
+      <a class="module-card mod-007" href="007-langgraph-learning/index.html">
+        <span class="status status-done">完成</span>
+        <div class="num">007</div>
+        <div class="title">LangGraph 图编排</div>
+        <div class="desc">StateGraph → 条件边 → Supervisor 多 Agent，掌握有状态 Agent 编排</div>
+        <div class="tags">
+          <span class="tag tag-purple">StateGraph</span>
+          <span class="tag tag-purple">Supervisor</span>
+          <span class="tag tag-purple">Memory</span>
+        </div>
+      </a>
+
+      <a class="module-card mod-008" href="008-mcp-learning/index.html">
+        <span class="status status-done">完成</span>
+        <div class="num">008</div>
+        <div class="title">MCP 协议</div>
+        <div class="desc">Tool Calling → MCP 标准化 → Server 开发 → Claude Code 集成，完整链路</div>
+        <div class="tags">
+          <span class="tag tag-pink">Tool Calling</span>
+          <span class="tag tag-pink">Server</span>
+          <span class="tag tag-pink">Claude Code</span>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- ── 高级阶段 ── -->
+  <div class="phase-section">
+    <div class="phase-header">
+      <span class="phase-badge phase-adv">高级阶段</span>
+      <span class="phase-label">Agent 设计、多 Agent 协作、AI Coding 最佳实践</span>
+    </div>
+    <div class="modules-grid">
+
+      <a class="module-card mod-009" href="009-agent-learning/index.html">
+        <span class="status status-done">完成</span>
+        <div class="num">009</div>
+        <div class="title">Agent 设计</div>
+        <div class="desc">Agent/Planning/ReAct/Tool Calling/Reflection + Research Agent 渐进 Demo</div>
+        <div class="tags">
+          <span class="tag tag-amber">ReAct</span>
+          <span class="tag tag-amber">Reflection</span>
+          <span class="tag tag-amber">Memory</span>
+        </div>
+      </a>
+
+      <a class="module-card mod-010" href="010-multi-agent-learning/index.html">
+        <span class="status status-done">完成</span>
+        <div class="num">010</div>
+        <div class="title">Multi-Agent 协作</div>
+        <div class="desc">PM + Architect + Coder + Reviewer 四 Agent LangGraph Supervisor 协作</div>
+        <div class="tags">
+          <span class="tag tag-teal">Supervisor</span>
+          <span class="tag tag-teal">Review循环</span>
+          <span class="tag tag-teal">冲突解决</span>
+        </div>
+      </a>
+
+      <a class="module-card mod-011" href="011-ai-coding-learning/index.html">
+        <span class="status status-done">完成</span>
+        <div class="num">011</div>
+        <div class="title">AI Coding 最佳实践</div>
+        <div class="desc">CLAUDE.md/AGENTS.md + Memory + Skills + Hooks + Context Engineering + Spec Driven + 项目模板</div>
+        <div class="tags">
+          <span class="tag tag-purple">CLAUDE.md</span>
+          <span class="tag tag-purple">Spec Driven</span>
+          <span class="tag tag-purple">模板</span>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  About                                                      -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="section" style="padding-top: 0;">
+  <div style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:32px;">
+    <h3 style="margin-bottom:16px;">关于本项目</h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:32px;">
+      <div>
+        <h4 style="color:var(--blue); margin-bottom:8px;">学习理念</h4>
+        <ul style="padding-left:1.2em; color:var(--muted); line-height:2.2;">
+          <li>所有概念必须配可运行 Demo</li>
+          <li>从问题出发（Why → What → How）</li>
+          <li>渐进式深入（Phase 1 → 2 → 3）</li>
+          <li>每个模块独立成体系</li>
+        </ul>
+      </div>
+      <div>
+        <h4 style="color:var(--green); margin-bottom:8px;">项目规范</h4>
+        <ul style="padding-left:1.2em; color:var(--muted); line-height:2.2;">
+          <li>Python 3.10+，标准库优先</li>
+          <li>教学指南 + Demo + 交互网页</li>
+          <li>代码注释中文，标识符英文</li>
+          <li>深色主题统一视觉风格</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  Footer                                                     -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="footer">
+  <p>
+    <a href="CLAUDE.md">CLAUDE.md</a> ·
+    <a href="AGENTS.md">AGENTS.md</a> ·
+    <a href="docs/learning-log.md">学习记录</a> ·
+    <a href="README.md">README</a>
+  </p>
+  <p style="margin-top:8px;">AI Learning Workspace — 系统学习 AI 工程的 11 个核心主题</p>
+</div>
+
+</body>
+</html>
