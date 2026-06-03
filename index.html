@@ -64,30 +64,77 @@
     color: var(--muted); text-align: center; margin-bottom: 40px; font-size: .95em;
   }
 
-  /* ── Learning Path ── */
-  .path-wrapper { overflow-x: auto; padding: 16px 0 32px; }
-  .path {
-    display: flex; align-items: center; gap: 0; min-width: max-content;
-    justify-content: center; padding: 0 16px;
+  /* ── Shutter Path ── */
+  .shutter-path {
+    display: flex; width: 100%; height: 280px; gap: 2px;
+    border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--border);
   }
-  .path-node {
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-    text-decoration: none; color: var(--text); transition: transform .2s;
-    min-width: 72px;
+  .shutter-item {
+    flex: 1; min-width: 0; height: 100%; position: relative;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 10px;
+    text-decoration: none; color: var(--text); cursor: pointer;
+    transition: flex .35s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
   }
-  .path-node:hover { transform: translateY(-4px); }
-  .path-dot {
-    width: 40px; height: 40px; border-radius: 50%; display: flex;
-    align-items: center; justify-content: center; font-weight: 700; font-size: .8em;
-    color: #fff; flex-shrink: 0;
+  .shutter-item::before {
+    content: ''; position: absolute; inset: 0;
+    opacity: .12; transition: opacity .35s;
   }
-  .path-label {
-    font-size: .72em; color: var(--muted); text-align: center; line-height: 1.3;
+  .shutter-item:hover { flex: 2.2; }
+  .shutter-item:hover::before { opacity: .2; }
+
+  /* shutter colors */
+  .sh-001 { background: #0d1f3c; } .sh-001::before { background: var(--blue); }
+  .sh-002 { background: #0d1f33; } .sh-002::before { background: var(--cyan); }
+  .sh-003 { background: #0d2a28; } .sh-003::before { background: var(--teal); }
+  .sh-004 { background: #0d2818; } .sh-004::before { background: var(--green); }
+  .sh-005 { background: #281a0d; } .sh-005::before { background: var(--orange); }
+  .sh-006 { background: #28180d; } .sh-006::before { background: var(--amber); }
+  .sh-007 { background: #180d28; } .sh-007::before { background: var(--purple); }
+  .sh-008 { background: #280d22; } .sh-008::before { background: var(--pink); }
+  .sh-009 { background: #281f0d; } .sh-009::before { background: #fbbf24; }
+  .sh-010 { background: #0d281f; } .sh-010::before { background: var(--teal); }
+  .sh-011 { background: #0d1c30; } .sh-011::before { background: #60a5fa; }
+
+  .shutter-item .sh-num {
+    font-size: .75em; font-weight: 700; letter-spacing: 1px;
+    opacity: .5; position: relative; z-index: 1; transition: opacity .3s;
   }
-  .path-line {
-    width: 32px; height: 2px; flex-shrink: 0; margin: 0 4px;
-    margin-bottom: 24px;
+  .shutter-item:hover .sh-num { opacity: .8; }
+  .shutter-item .sh-icon {
+    font-size: 1.5em; font-weight: 800; position: relative; z-index: 1;
   }
+  .shutter-item .sh-title {
+    font-size: .85em; font-weight: 700; position: relative; z-index: 1;
+    white-space: nowrap; writing-mode: vertical-rl; letter-spacing: 2px;
+    transition: writing-mode .35s, letter-spacing .35s;
+  }
+  .shutter-item:hover .sh-title {
+    writing-mode: horizontal-tb; letter-spacing: 1px;
+  }
+  .shutter-item .sh-detail {
+    position: absolute; bottom: 0; left: 0; right: 0; padding: 16px 20px;
+    opacity: 0; transform: translateY(12px); transition: opacity .3s .15s, transform .3s .15s;
+    z-index: 1; text-align: center;
+  }
+  .shutter-item:hover .sh-detail {
+    opacity: 1; transform: translateY(0);
+  }
+  .shutter-item .sh-detail .sh-desc {
+    font-size: .8em; color: var(--muted); line-height: 1.5; margin-bottom: 10px;
+  }
+  .shutter-item .sh-detail .sh-link {
+    font-size: .78em; color: var(--blue); text-decoration: underline;
+  }
+  @media (max-width: 768px) {
+    .shutter-path { height: 200px; }
+    .shutter-item .sh-title { font-size: .7em; }
+    .shutter-item .sh-detail { display: none; }
+    .shutter-item:hover .sh-detail { display: block; }
+  }
+
 
   /* ── Module Cards ── */
   .modules-grid {
@@ -177,13 +224,6 @@
   .phase-adv { background: rgba(163,113,247,0.1); color: var(--purple); border: 1px solid rgba(163,113,247,0.2); }
   .phase-label { color: var(--muted); font-size: .9em; }
 
-  /* ── Footer ── */
-  .footer {
-    border-top: 1px solid var(--border); padding: 32px 24px; text-align: center;
-    color: var(--muted); font-size: .85em;
-  }
-  .footer a { color: var(--blue); text-decoration: none; }
-  .footer a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -213,69 +253,112 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════ -->
-<!--  Learning Path                                              -->
+<!--  Shutter Learning Path                                      -->
 <!-- ═══════════════════════════════════════════════════════════ -->
 <div class="section" style="padding-bottom: 0;">
   <h2 class="section-title">学习路径</h2>
-  <p class="section-sub">从底层概念到架构设计，渐进式深入</p>
+  <p class="section-sub">鼠标悬停展开模块详情，点击跳转</p>
 
-  <div class="path-wrapper">
-    <div class="path">
-      <a class="path-node" href="001-llm-learning/index.html">
-        <div class="path-dot" style="background:var(--blue);">LLM</div>
-        <span class="path-label">LLM 基础</span>
-      </a>
-      <div class="path-line" style="background:linear-gradient(90deg,var(--blue),var(--cyan));"></div>
-      <a class="path-node" href="002-prompt-learning/index.html">
-        <div class="path-dot" style="background:var(--cyan);">P</div>
-        <span class="path-label">Prompt</span>
-      </a>
-      <div class="path-line" style="background:linear-gradient(90deg,var(--cyan),var(--teal));"></div>
-      <a class="path-node" href="003-embedding-learning/index.html">
-        <div class="path-dot" style="background:var(--teal);">E</div>
-        <span class="path-label">Embedding</span>
-      </a>
-      <div class="path-line" style="background:linear-gradient(90deg,var(--teal),var(--green));"></div>
-      <a class="path-node" href="004-vector-db-learning/index.html">
-        <div class="path-dot" style="background:var(--green);">V</div>
-        <span class="path-label">Vector DB</span>
-      </a>
-      <div class="path-line" style="background:linear-gradient(90deg,var(--green),var(--orange));"></div>
-      <a class="path-node" href="005-rag-learning/index.html">
-        <div class="path-dot" style="background:var(--orange);">R</div>
-        <span class="path-label">RAG</span>
-      </a>
-      <div class="path-line" style="background:linear-gradient(90deg,var(--orange),var(--amber));"></div>
-      <a class="path-node" href="006-langchain-learning/index.html">
-        <div class="path-dot" style="background:var(--amber);">LC</div>
-        <span class="path-label">LangChain</span>
-      </a>
-      <div class="path-line" style="background:linear-gradient(90deg,var(--amber),var(--purple));"></div>
-      <a class="path-node" href="007-langgraph-learning/index.html">
-        <div class="path-dot" style="background:var(--purple);">LG</div>
-        <span class="path-label">LangGraph</span>
-      </a>
-      <div class="path-line" style="background:linear-gradient(90deg,var(--purple),var(--pink));"></div>
-      <a class="path-node" href="008-mcp-learning/index.html">
-        <div class="path-dot" style="background:var(--pink);">MCP</div>
-        <span class="path-label">MCP</span>
-      </a>
-      <div class="path-line" style="background:linear-gradient(90deg,var(--pink),#fbbf24);"></div>
-      <a class="path-node" href="009-agent-learning/index.html">
-        <div class="path-dot" style="background:#fbbf24;">Ag</div>
-        <span class="path-label">Agent</span>
-      </a>
-      <div class="path-line" style="background:linear-gradient(90deg,#fbbf24,var(--teal));"></div>
-      <a class="path-node" href="010-multi-agent-learning/index.html">
-        <div class="path-dot" style="background:var(--teal);">MA</div>
-        <span class="path-label">Multi-Agent</span>
-      </a>
-      <div class="path-line" style="background:linear-gradient(90deg,var(--teal),#60a5fa);"></div>
-      <a class="path-node" href="011-ai-coding-learning/index.html">
-        <div class="path-dot" style="background:#60a5fa;">AC</div>
-        <span class="path-label">AI Coding</span>
-      </a>
-    </div>
+  <div class="shutter-path">
+    <a class="shutter-item sh-001" href="001-llm-learning/index.html">
+      <span class="sh-num">001</span>
+      <span class="sh-icon">🧠</span>
+      <span class="sh-title">LLM 基础</span>
+      <span class="sh-detail">
+        <div class="sh-desc">API 调用、Token 机制、Temperature 核心概念</div>
+        <span class="sh-link">进入学习 →</span>
+      </span>
+    </a>
+    <a class="shutter-item sh-002" href="002-prompt-learning/index.html">
+      <span class="sh-num">002</span>
+      <span class="sh-icon">✍️</span>
+      <span class="sh-title">Prompt 工程</span>
+      <span class="sh-detail">
+        <div class="sh-desc">Few-shot、CoT、模板设计等高阶技巧</div>
+        <span class="sh-link">进入学习 →</span>
+      </span>
+    </a>
+    <a class="shutter-item sh-003" href="003-embedding-learning/index.html">
+      <span class="sh-num">003</span>
+      <span class="sh-icon">🔢</span>
+      <span class="sh-title">Embedding</span>
+      <span class="sh-detail">
+        <div class="sh-desc">文本向量化原理、语义相似度计算</div>
+        <span class="sh-link">进入学习 →</span>
+      </span>
+    </a>
+    <a class="shutter-item sh-004" href="004-vector-db-learning/index.html">
+      <span class="sh-num">004</span>
+      <span class="sh-icon">🗄️</span>
+      <span class="sh-title">Vector DB</span>
+      <span class="sh-detail">
+        <div class="sh-desc">ChromaDB 入门、向量存储与检索对比</div>
+        <span class="sh-link">进入学习 →</span>
+      </span>
+    </a>
+    <a class="shutter-item sh-005" href="005-rag-learning/index.html">
+      <span class="sh-num">005</span>
+      <span class="sh-icon">🔗</span>
+      <span class="sh-title">RAG</span>
+      <span class="sh-detail">
+        <div class="sh-desc">5 步渐进式：检索 → 生成 → 评估</div>
+        <span class="sh-link">进入学习 →</span>
+      </span>
+    </a>
+    <a class="shutter-item sh-006" href="006-langchain-learning/index.html">
+      <span class="sh-num">006</span>
+      <span class="sh-icon">⛓️</span>
+      <span class="sh-title">LangChain</span>
+      <span class="sh-detail">
+        <div class="sh-desc">7 大核心概念 + RAG 管道重构</div>
+        <span class="sh-link">进入学习 →</span>
+      </span>
+    </a>
+    <a class="shutter-item sh-007" href="007-langgraph-learning/index.html">
+      <span class="sh-num">007</span>
+      <span class="sh-icon">🕸️</span>
+      <span class="sh-title">LangGraph</span>
+      <span class="sh-detail">
+        <div class="sh-desc">StateGraph → 条件边 → Supervisor 模式</div>
+        <span class="sh-link">进入学习 →</span>
+      </span>
+    </a>
+    <a class="shutter-item sh-008" href="008-mcp-learning/index.html">
+      <span class="sh-num">008</span>
+      <span class="sh-icon">🔌</span>
+      <span class="sh-title">MCP 协议</span>
+      <span class="sh-detail">
+        <div class="sh-desc">Tool Calling 标准化 + Server 开发 + 集成</div>
+        <span class="sh-link">进入学习 →</span>
+      </span>
+    </a>
+    <a class="shutter-item sh-009" href="009-agent-learning/index.html">
+      <span class="sh-num">009</span>
+      <span class="sh-icon">🤖</span>
+      <span class="sh-title">Agent 设计</span>
+      <span class="sh-detail">
+        <div class="sh-desc">ReAct → Memory → Reflection 渐进实现</div>
+        <span class="sh-link">进入学习 →</span>
+      </span>
+    </a>
+    <a class="shutter-item sh-010" href="010-multi-agent-learning/index.html">
+      <span class="sh-num">010</span>
+      <span class="sh-icon">👥</span>
+      <span class="sh-title">Multi-Agent</span>
+      <span class="sh-detail">
+        <div class="sh-desc">PM + Architect + Coder + Reviewer 协作</div>
+        <span class="sh-link">进入学习 →</span>
+      </span>
+    </a>
+    <a class="shutter-item sh-011" href="011-ai-coding-learning/index.html">
+      <span class="sh-num">011</span>
+      <span class="sh-icon">⚡</span>
+      <span class="sh-title">AI Coding</span>
+      <span class="sh-detail">
+        <div class="sh-desc">Context Engineering + Spec Driven + 模板</div>
+        <span class="sh-link">进入学习 →</span>
+      </span>
+    </a>
   </div>
 </div>
 
@@ -478,19 +561,6 @@
       </div>
     </div>
   </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════ -->
-<!--  Footer                                                     -->
-<!-- ═══════════════════════════════════════════════════════════ -->
-<div class="footer">
-  <p>
-    <a href="CLAUDE.md">CLAUDE.md</a> ·
-    <a href="AGENTS.md">AGENTS.md</a> ·
-    <a href="docs/learning-log.md">学习记录</a> ·
-    <a href="README.md">README</a>
-  </p>
-  <p style="margin-top:8px;">AI Learning Workspace — 系统学习 AI 工程的 11 个核心主题</p>
 </div>
 
 </body>
