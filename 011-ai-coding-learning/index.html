@@ -121,7 +121,7 @@
 
 <div class="tabs" id="tabBar">
   <button class="tab-btn active" data-tab="core-math">核心等式</button>
-  <button class="tab-btn" data-tab="claude-md">CLAUDE.md</button>
+  <button class="tab-btn" data-tab="claude-md">CLAUDE.md & AGENTS.md</button>
   <button class="tab-btn" data-tab="memory">Memory 系统</button>
   <button class="tab-btn" data-tab="skills">Skills & Hooks</button>
   <button class="tab-btn" data-tab="context">Context Engineering</button>
@@ -233,8 +233,75 @@
     </table>
   </div>
 
+  <div class="card">
+    <h3>AGENTS.md = 跨平台 Agent 指令</h3>
+    <p style="color:var(--muted); margin-bottom:16px;">
+      如果同时使用多个 AI 编程工具（Claude Code、Codex、Copilot、Cursor），<code>AGENTS.md</code> 是它们共同的"通用规范"。<code>CLAUDE.md</code> 则是 Claude Code 的专属补充配置。
+    </p>
+
+    <div class="grid-2">
+      <div>
+        <h4><span class="tag cyan">AGENTS.md</span> 放什么</h4>
+        <ul style="padding-left:1.2em; color:var(--muted); line-height:2.2;">
+          <li>项目定位和背景</li>
+          <li>通用编码规范（跨工具适用）</li>
+          <li>架构约定（分层、模块边界）</li>
+          <li>工作约定（提交格式、分支策略）</li>
+          <li>安全要求（不硬编码密钥等）</li>
+        </ul>
+      </div>
+      <div>
+        <h4><span class="tag purple">CLAUDE.md</span> 放什么</h4>
+        <ul style="padding-left:1.2em; color:var(--muted); line-height:2.2;">
+          <li>Skills 引用和配置</li>
+          <li>Hooks 触发规则</li>
+          <li>Memory 文件路径</li>
+          <li>Claude Code 特有的工作流</li>
+          <li>项目特有的 MCP Server 配置</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>协同策略</h3>
+    <div class="flow">
+      <div class="flow-box" style="border-color:var(--cyan);">
+        <strong>只用 Claude Code</strong><br>
+        <span style="font-size:.82em; color:var(--muted);">CLAUDE.md 就够了</span>
+      </div>
+      <div class="flow-arrow" style="font-size:1.5em;">|</div>
+      <div class="flow-box highlight">
+        <strong>多工具协作</strong><br>
+        <span style="font-size:.82em; color:var(--muted);">AGENTS.md（通用规则）</span><br>
+        <span style="font-size:.82em; color:var(--muted);">+ CLAUDE.md（Claude Code 专属）</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>AGENTS.md 模板示例</h3>
+    <pre><code># AGENTS.md — 跨平台 AI Agent 指令
+
+## 项目背景
+AI 学习工作坊，11 个渐进式模块
+
+## 通用编码规范
+- 语言: Python 3.10+
+- 每个模块必须配 README + Demo + 教学指南
+- 代码注释用中文，标识符用英文
+
+## 架构约定
+- 模块命名: 0XX-topic-learning/
+- 不跨模块引用代码
+
+## 工作约定
+- Commit: type: 中文描述
+- 新建模块后更新 docs/learning-log.md</code></pre>
+  </div>
+
   <div class="callout info">
-    <strong>CLAUDE.md vs AGENTS.md</strong><br>
+    <strong>CLAUDE.md vs AGENTS.md 总结</strong><br>
     <code>AGENTS.md</code> → 跨平台通用规则（Claude Code、Codex、Cursor 等）<br>
     <code>CLAUDE.md</code> → Claude Code 专属配置（Skills、Hooks、Memory 路径）<br>
     只用 Claude Code → 只需 CLAUDE.md | 多工具 → AGENTS.md + CLAUDE.md
