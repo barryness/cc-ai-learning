@@ -1,6 +1,6 @@
 # 学习记录
 
-> 学习路径：LLM → Prompt → Embedding → Vector DB → RAG → LangChain → LangGraph → MCP → Agent → Multi-Agent
+> 学习路径：LLM → Prompt → Embedding → Vector DB → RAG → LangChain → LangGraph → MCP → Agent → Multi-Agent → AI Coding
 
 | # | 模块 | 状态 | 内容概要 |
 |---|------|------|----------|
@@ -14,6 +14,7 @@
 | 008 | MCP | 完成 | Tool Calling → MCP 协议 → Server 开发 → Claude Code 集成 |
 | 009 | Agent 设计 | 完成 | Agent/Planning/ReAct/Tool Calling/Reflection + Research Agent Demo |
 | 010 | Multi-Agent | 完成 | PM + Architect + Coder + Reviewer 四 Agent LangGraph 协作 |
+| 011 | AI Coding | 完成 | CLAUDE.md/Memory/Skills/Hooks/Context Engineering/Spec Driven + 项目模板 |
 
 ## 目录结构
 
@@ -29,6 +30,7 @@ ai-learning/
 ├── 008-mcp-learning/          # MCP 协议
 ├── 009-agent-learning/        # Agent 设计
 ├── 010-multi-agent-learning/  # Multi-Agent 协作
+├── 011-ai-coding-learning/    # AI Coding 最佳实践
 ├── docs/                      # 项目文档
 ├── python-env-guide.md        # Python 环境管理指南
 └── README.md

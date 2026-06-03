@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Coding 最佳实践 —— 从上下文工程到 Spec 驱动开发</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a;
+    --text: #c9d1d9; --muted: #8b949e; --accent: #a371f7;
+    --green: #3fb950; --orange: #d2991d; --red: #f85149;
+    --purple: #a371f7; --cyan: #39c5cf; --amber: #f0883e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7;
+  }
+  .hero {
+    background: linear-gradient(135deg, #1a1d27 0%, #1e1a2e 50%, #111827 100%);
+    border-bottom: 1px solid var(--border); padding: 60px 24px 48px; text-align: center;
+  }
+  .hero h1 { font-size: 2.6em; background: linear-gradient(135deg, #a371f7, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+  .hero p { color: var(--muted); font-size: 1.1em; max-width: 700px; margin: 0 auto; }
+
+  .tabs {
+    display: flex; gap: 2px; background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 0 24px; position: sticky; top: 0; z-index: 10; overflow-x: auto;
+  }
+  .tab-btn {
+    background: none; border: none; color: var(--muted); padding: 14px 16px;
+    font-size: .89em; cursor: pointer; border-bottom: 2px solid transparent;
+    transition: .2s; font-family: inherit; white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--purple); border-bottom-color: var(--purple); }
+  .tab-content { display: none; padding: 40px 24px; max-width: 1000px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 28px; margin-bottom: 24px;
+  }
+  .card h3 { font-size: 1.2em; margin-bottom: 12px; color: #e6edf3; }
+  .card h4 { font-size: 1.05em; margin: 16px 0 8px; color: #d0d7de; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 768px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+  .callout {
+    border-left: 3px solid var(--accent); background: rgba(163, 113, 247, 0.08);
+    padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 16px 0; font-size: .93em;
+  }
+  .callout.info { border-left-color: var(--cyan); background: rgba(57, 197, 207, 0.08); }
+  .callout.warn { border-left-color: var(--orange); background: rgba(210, 153, 29, 0.08); }
+  .callout.good { border-left-color: var(--green); background: rgba(63, 185, 80, 0.08); }
+
+  code {
+    background: #12151a; padding: 2px 7px; border-radius: 4px;
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: .88em; color: #a371f7;
+  }
+  pre {
+    background: #12151a; border: 1px solid var(--border); border-radius: 8px;
+    padding: 20px; overflow-x: auto; font-size: .85em; line-height: 1.6;
+  }
+  pre code { background: none; padding: 0; color: var(--text); }
+
+  .flow {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;
+    padding: 20px; font-size: .9em;
+  }
+  .flow-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; text-align: center;
+  }
+  .flow-box.highlight { border-color: var(--purple); background: rgba(163, 113, 247, 0.08); }
+  .flow-arrow { color: var(--muted); font-size: 1.2em; }
+
+  .tag {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: .8em; margin: 2px 4px;
+  }
+  .tag.green { background: rgba(63, 185, 80, 0.15); color: var(--green); }
+  .tag.purple { background: rgba(163, 113, 247, 0.15); color: var(--purple); }
+  .tag.cyan { background: rgba(57, 197, 207, 0.15); color: var(--cyan); }
+  .tag.amber { background: rgba(240, 136, 62, 0.15); color: var(--amber); }
+  .tag.red { background: rgba(248, 81, 73, 0.15); color: var(--red); }
+
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: .92em; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: .85em; text-transform: uppercase; }
+  td { vertical-align: top; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .level-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px; text-align: center;
+  }
+  .level-box.l1 { border-top: 3px solid var(--red); }
+  .level-box.l2 { border-top: 3px solid var(--amber); }
+  .level-box.l3 { border-top: 3px solid var(--green); }
+
+  .step-row {
+    display: flex; align-items: flex-start; gap: 14px; padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .step-num {
+    min-width: 32px; height: 32px; border-radius: 8px; display: flex;
+    align-items: center; justify-content: center; font-weight: 700; font-size: .85em;
+    background: rgba(163, 113, 247, 0.12); color: var(--purple);
+  }
+  .step-num.g { background: rgba(63, 185, 80, 0.12); color: var(--green); }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>AI Coding 最佳实践</h1>
+  <p>上下文工程 × Spec 驱动开发 —— 设计 AI 的工作环境，而非写更长的 Prompt</p>
+</div>
+
+<div class="tabs" id="tabBar">
+  <button class="tab-btn active" data-tab="core-math">核心等式</button>
+  <button class="tab-btn" data-tab="claude-md">CLAUDE.md</button>
+  <button class="tab-btn" data-tab="memory">Memory 系统</button>
+  <button class="tab-btn" data-tab="skills">Skills & Hooks</button>
+  <button class="tab-btn" data-tab="context">Context Engineering</button>
+  <button class="tab-btn" data-tab="spec-driven">Spec Driven</button>
+  <button class="tab-btn" data-tab="workflow">完整工作流</button>
+  <button class="tab-btn" data-tab="antipatterns">反模式</button>
+</div>
+
+<!-- Tab 1: 核心等式 -->
+<div class="tab-content active" id="tab-core-math">
+  <div class="card">
+    <h3>AI Coding 的核心等式</h3>
+    <div style="text-align:center; padding: 32px;">
+      <div style="font-size: 1.4em; line-height: 2.2;">
+        <strong style="color:var(--purple);">AI 输出质量</strong><br>
+        =<br>
+        <span style="color:var(--cyan);">上下文质量</span> ×
+        <span style="color:var(--amber);">任务清晰度</span> ×
+        <span style="color:var(--muted);">模型能力</span>
+      </div>
+      <p style="color:var(--muted); margin-top: 20px;">
+        模型能力你控制不了。<br>
+        但 <strong style="color:var(--cyan);">上下文质量</strong> 和 <strong style="color:var(--amber);">任务清晰度</strong> 完全由你控制。
+      </p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>AI Coding 的三个层次</h3>
+    <div class="grid-3">
+      <div class="level-box l1">
+        <strong>Level 1: 问答式</strong>
+        <p style="color:var(--muted); font-size:.85em; margin-top:8px;">
+          "帮我写一个排序函数"<br>
+          → AI 生成，粘贴到项目<br>
+          → 风格不一致，需要大量修改
+        </p>
+        <span class="tag red">无上下文</span>
+      </div>
+      <div class="level-box l2">
+        <strong>Level 2: 上下文感知</strong>
+        <p style="color:var(--muted); font-size:.85em; margin-top:8px;">
+          有 CLAUDE.md + 打开相关文件<br>
+          → AI 了解项目规范<br>
+          → 生成符合风格的代码
+        </p>
+        <span class="tag amber">被动适应</span>
+      </div>
+      <div class="level-box l3">
+        <strong>Level 3: Spec 驱动</strong>
+        <p style="color:var(--muted); font-size:.85em; margin-top:8px;">
+          PRD → Arch → Tasks<br>
+          → AI 在清晰规约下工作<br>
+          → 方向正确、质量可控、可追溯
+        </p>
+        <span class="tag green">主动设计</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout good">
+    <strong>关键洞察</strong><br>
+    AI Coding 的瓶颈从来不是模型不够聪明，而是你给它的上下文不够好。
+  </div>
+</div>
+
+<!-- Tab 2: CLAUDE.md -->
+<div class="tab-content" id="tab-claude-md">
+  <div class="card">
+    <h3>CLAUDE.md = 项目的 AI 入口文件</h3>
+    <p style="color:var(--muted);">
+      Claude Code 每次会话自动加载。它定义了 AI 在这个项目中的"行为准则"。
+    </p>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>✅ 好的 CLAUDE.md</h3>
+      <pre><code>## 规则
+- 所有函数必须有类型提示
+- API 端点必须做输入校验
+- 不引入超过 3 个新依赖
+
+## 禁忌
+- 不要在 API 层直接操作数据库
+- 不要硬编码敏感信息
+- 不要跳过测试直接提交</code></pre>
+      <p style="color:var(--green); font-size:.85em; margin-top:8px;">每条都可执行、可验证</p>
+    </div>
+    <div class="card">
+      <h3>❌ 差的 CLAUDE.md</h3>
+      <pre><code>## 规则
+- 代码要写好
+- 注意安全
+- 使用合适的设计模式</code></pre>
+      <p style="color:var(--red); font-size:.85em; margin-top:8px;">全是空话，AI 没有可执行的约束</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>CLAUDE.md 设计五原则</h3>
+    <table>
+      <tr><th>原则</th><th>说明</th><th>例子</th></tr>
+      <tr><td>具体而非抽象</td><td>可验证的规则，而非模糊描述</td><td>"函数不超过 20 行" 而非 "代码要干净"</td></tr>
+      <tr><td>约束而非建议</td><td>"必须" 而非 "建议"</td><td>"所有函数必须有类型提示"</td></tr>
+      <tr><td>说做什么也说不做什么</td><td>禁忌往往比规则更重要</td><td>"不要在 API 层操作数据库"</td></tr>
+      <tr><td>保持更新</td><td>发现新规则立即更新</td><td>踩坑后用 CLAUDE.md 防止再犯</td></tr>
+      <tr><td>短小精悍</td><td>每行一条规则，控制在 100 行内</td><td>别写散文</td></tr>
+    </table>
+  </div>
+
+  <div class="callout info">
+    <strong>CLAUDE.md vs AGENTS.md</strong><br>
+    <code>AGENTS.md</code> → 跨平台通用规则（Claude Code、Codex、Cursor 等）<br>
+    <code>CLAUDE.md</code> → Claude Code 专属配置（Skills、Hooks、Memory 路径）<br>
+    只用 Claude Code → 只需 CLAUDE.md | 多工具 → AGENTS.md + CLAUDE.md
+  </div>
+</div>
+
+<!-- Tab 3: Memory 系统 -->
+<div class="tab-content" id="tab-memory">
+  <div class="card">
+    <h3>Memory 解决"会话失忆"问题</h3>
+    <div class="flow">
+      <div class="flow-box" style="border-color:var(--red);">
+        <strong>没有 Memory</strong><br>
+        <span style="font-size:.8em; color:var(--muted);">会话 1: 决定用 Redis</span><br>
+        <span style="font-size:.8em; color:var(--muted);">会话 2: 不知道，推荐 Memcached</span>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box highlight">
+        <strong>有 Memory</strong><br>
+        <span style="font-size:.8em; color:var(--muted);">会话 1: 决定用 Redis → 写入 memory/</span><br>
+        <span style="font-size:.8em; color:var(--muted);">会话 2: 加载 memory/ → 知道用 Redis</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>五种 Memory 类型</h3>
+    <table>
+      <tr><th>类型</th><th>文件</th><th>记录什么</th></tr>
+      <tr><td><span class="tag purple">user</span></td><td>user_role.md</td><td>用户角色、目标、技术背景、偏好</td></tr>
+      <tr><td><span class="tag cyan">project</span></td><td>project_context.md</td><td>为什么做这个项目、核心约束、干系人</td></tr>
+      <tr><td><span class="tag amber">project</span></td><td>decisions.md</td><td>技术选型及理由（为什么选 Redis 不选 Memcached）</td></tr>
+      <tr><td><span class="tag green">project</span></td><td>architecture_decisions.md</td><td>架构层面的关键决策（分层策略、API 设计风格）</td></tr>
+      <tr><td><span class="tag purple">feedback</span></td><td>feedback.md</td><td>用户对 AI 协作方式的偏好和反馈</td></tr>
+    </table>
+  </div>
+
+  <div class="callout good">
+    <strong>Memory 黄金法则</strong><br>
+    记录 <strong>WHY</strong> 而非 WHAT。WHAT 在代码里，WHY 在 Memory 里。<br>
+    "我们选 Redis 而不是 Memcached，因为需要持久化和复杂数据结构" ← 这无法从代码推导。
+  </div>
+</div>
+
+<!-- Tab 4: Skills & Hooks -->
+<div class="tab-content" id="tab-skills">
+  <div class="card">
+    <h3>Skill = 可复用的 AI 能力模板</h3>
+    <p style="color:var(--muted);">
+      Skill 是预定义的 Checklist，告诉 AI "当遇到这类任务时，按这个步骤做"。
+    </p>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>没有 Skill</h3>
+      <pre><code>用户: "review 我的代码"
+AI: "看起来不错"（泛泛而谈）</code></pre>
+    </div>
+    <div class="card">
+      <h3>有 Skill</h3>
+      <pre><code>用户: "review 我的代码"
+AI: 加载 code-review Skill
+  → 1. 安全审查
+  → 2. 逻辑审查
+  → 3. 性能审查
+  → 4. 风格审查
+  → 5. 结构化报告</code></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Hooks = 事件驱动的自动化</h3>
+    <table>
+      <tr><th>事件</th><th>触发时机</th><th>典型用途</th></tr>
+      <tr><td><code>PostToolUse</code></td><td>Write/Edit 文件后</td><td>自动 ruff/black 格式化</td></tr>
+      <tr><td><code>PreToolUse</code></td><td>Bash 命令执行前</td><td>检测危险命令（rm -rf, push --force）</td></tr>
+      <tr><td><code>SessionStart</code></td><td>会话开始时</td><td>加载 Memory、记录日志</td></tr>
+      <tr><td><code>PreCompaction</code></td><td>上下文压缩前</td><td>自动将关键信息写入 Memory</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- Tab 5: Context Engineering -->
+<div class="tab-content" id="tab-context">
+  <div class="card">
+    <h3>上下文窗口是 AI 的"工作记忆"</h3>
+    <p style="color:var(--muted);">
+      你放进来的东西决定了 AI 的输出质量。Context Engineering = 主动设计 AI 看到什么。
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>上下文分层</h3>
+    <div style="text-align:center;">
+      <div class="arch-layer" style="border-color:var(--purple); background:rgba(163,113,247,0.06); margin:8px; padding:12px;">
+        <strong>系统层</strong> — 模型能力、工具集 — <span style="color:var(--muted);">始终加载</span>
+      </div>
+      <div class="arch-layer" style="border-color:var(--cyan); background:rgba(57,197,207,0.06); margin:8px; padding:12px;">
+        <strong>项目层</strong> — CLAUDE.md、AGENTS.md — <span style="color:var(--muted);">会话开始时</span>
+      </div>
+      <div class="arch-layer" style="border-color:var(--amber); background:rgba(240,136,62,0.06); margin:8px; padding:12px;">
+        <strong>记忆层</strong> — MEMORY.md、决策记录 — <span style="color:var(--muted);">会话开始时</span>
+      </div>
+      <div class="arch-layer" style="border-color:var(--green); background:rgba(63,185,80,0.06); margin:8px; padding:12px;">
+        <strong>任务层</strong> — Spec 文档、Task 文件 — <span style="color:var(--muted);">任务切换时</span>
+      </div>
+      <div class="arch-layer" style="border-color:var(--red); background:rgba(248,81,73,0.06); margin:8px; padding:12px;">
+        <strong>即时层</strong> — 打开的文件、当前对话 — <span style="color:var(--muted);">实时</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>✅ 好的上下文</h3>
+      <ul style="padding-left:1.2em; color:var(--muted); line-height:2.2;">
+        <li>只打开当前任务相关的 2-3 个文件</li>
+        <li>CLAUDE.md 控制在 100 行以内</li>
+        <li>Memory 定期清理过期记录</li>
+        <li>一个 Task 一个 Task 地推进</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>❌ 上下文污染</h3>
+      <ul style="padding-left:1.2em; color:var(--muted); line-height:2.2;">
+        <li>打开 15 个无关文件</li>
+        <li>CLAUDE.md 写了 500 行</li>
+        <li>Memory 记录过期信息（项目已迁移但 Memory 未更新）</li>
+        <li>一次给 AI 太多任务</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Tab 6: Spec Driven -->
+<div class="tab-content" id="tab-spec-driven">
+  <div class="card">
+    <h3>Spec Driven Development</h3>
+    <div class="flow">
+      <div class="flow-box highlight">PRD<br><span style="font-size:.78em;color:var(--muted)">要做什么</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box highlight">Architecture<br><span style="font-size:.78em;color:var(--muted)">怎么做</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box highlight">Tasks<br><span style="font-size:.78em;color:var(--muted)">分步实现</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box" style="border-color:var(--green);">Coding<br><span style="font-size:.78em;color:var(--muted)">逐 Task 实现</span></div>
+    </div>
+    <p style="text-align:center; color:var(--muted); font-size:.85em; margin-top:12px;">
+      每个阶段评审通过后才进入下一阶段。在写代码之前，把方向想清楚。
+    </p>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>不用 Spec</h3>
+      <pre><code>需求 → AI 写代码 → 审查
+  → 方向偏了 → 重写
+  → 又偏了 → 再重写
+  → 质量不可追溯</code></pre>
+    </div>
+    <div class="card">
+      <h3>用 Spec</h3>
+      <pre><code>需求 → PRD（确认）
+  → Arch（确认）
+  → Tasks（确认）
+  → 逐 Task 实现
+  → 对照验收标准验证
+  → 方向正确、可追溯</code></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Spec 的三个层次</h3>
+    <table>
+      <tr><th>文档</th><th>回答的问题</th><th>产出</th></tr>
+      <tr>
+        <td><span class="tag purple">01-prd.md</span></td>
+        <td>用户要什么？验收标准是什么？</td>
+        <td>用户故事、功能列表（P0/P1/P2）、验收条件</td>
+      </tr>
+      <tr>
+        <td><span class="tag cyan">02-architecture.md</span></td>
+        <td>用什么技术？模块怎么划分？</td>
+        <td>技术选型、数据模型、API 契约、代码结构</td>
+      </tr>
+      <tr>
+        <td><span class="tag amber">03-tasks.md</span></td>
+        <td>分几步？依赖关系？</td>
+        <td>Task 列表（30min-2h/个）、依赖关系图、AI Prompt</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="callout good">
+    <strong>Spec 的关键检验</strong><br>
+    "如果 Spec 写好了，换一个人（或另一个 AI 会话）能独立完成吗？"<br>
+    如果答案是"不能" → Spec 不够清晰。
+  </div>
+</div>
+
+<!-- Tab 7: 完整工作流 -->
+<div class="tab-content" id="tab-workflow">
+  <div class="card">
+    <h3>AI 开发全流程</h3>
+    <div style="overflow-x:auto;">
+      <div class="flow" style="flex-wrap:nowrap; padding:16px 0;">
+        <div class="flow-box highlight" style="min-width:80px;">PRD</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box highlight" style="min-width:80px;">Arch</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box highlight" style="min-width:80px;">Tasks</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box" style="border-color:var(--green); min-width:80px;">Coding</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box" style="border-color:var(--red); min-width:80px;">Review</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box" style="border-color:var(--cyan); min-width:80px;">Test</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box" style="border-color:var(--amber); min-width:80px;">Deploy</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box" style="border-color:var(--purple); min-width:80px;">Retro</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>各阶段详解</h3>
+    <div class="step-row"><span class="step-num g">1</span><div><strong>PRD</strong> — 产品需求文档<br><span style="color:var(--muted);">把模糊需求变成结构化功能描述。每个功能配验收标准。</span></div></div>
+    <div class="step-row"><span class="step-num g">2</span><div><strong>Architecture</strong> — 架构设计<br><span style="color:var(--muted);">技术选型 + 组件图 + 数据模型 + API 契约。人决策，AI 出方案。</span></div></div>
+    <div class="step-row"><span class="step-num g">3</span><div><strong>Tasks</strong> — 任务拆解<br><span style="color:var(--muted);">拆成 30min-2h 的独立 Task，明确依赖关系和验收条件。</span></div></div>
+    <div class="step-row"><span class="step-num">4</span><div><strong>Coding</strong> — 逐 Task 实现<br><span style="color:var(--muted);">一次只做一个 Task。打开相关文件 + Task 描述 → AI 实现 → 验证 → 提交。</span></div></div>
+    <div class="step-row"><span class="step-num">5</span><div><strong>Review</strong> — 三层审查<br><span style="color:var(--muted);">AI 快速扫 → 人检查设计 → 测试自动验证。对照 PRD 和 Arch 检查。</span></div></div>
+    <div class="step-row"><span class="step-num">6</span><div><strong>Test</strong> — 多层测试<br><span style="color:var(--muted);">单元 → 集成 → API → 验收。AI 根据 Task 自动生成测试用例。</span></div></div>
+    <div class="step-row"><span class="step-num">7</span><div><strong>Deploy</strong> — 部署上线<br><span style="color:var(--muted);">按检查清单逐项确认：测试通过、配置就绪、监控告警、回滚方案。</span></div></div>
+    <div class="step-row"><span class="step-num">8</span><div><strong>Retro</strong> — 回顾优化<br><span style="color:var(--muted);">更新 Memory 记录经验，更新 CLAUDE.md 加新规则，创建可复用的 Skill。</span></div></div>
+  </div>
+</div>
+
+<!-- Tab 8: 反模式 -->
+<div class="tab-content" id="tab-antipatterns">
+  <div class="card">
+    <h3>十大反模式</h3>
+    <table>
+      <tr><th>#</th><th>反模式</th><th>后果</th><th>正确做法</th></tr>
+      <tr>
+        <td><span class="tag red">1</span></td>
+        <td>没写 CLAUDE.md 就开始</td>
+        <td>AI 不了解规范</td>
+        <td>先写好 CLAUDE.md</td>
+      </tr>
+      <tr>
+        <td><span class="tag red">2</span></td>
+        <td>跳过 PRD 直接写代码</td>
+        <td>方向容易偏</td>
+        <td>PRD → Arch → Tasks</td>
+      </tr>
+      <tr>
+        <td><span class="tag red">3</span></td>
+        <td>一次给太多任务</td>
+        <td>输出质量断崖下降</td>
+        <td>一次一个 Task</td>
+      </tr>
+      <tr>
+        <td><span class="tag amber">4</span></td>
+        <td>打开不相关的文件</td>
+        <td>上下文污染</td>
+        <td>只开当前任务需要的</td>
+      </tr>
+      <tr>
+        <td><span class="tag amber">5</span></td>
+        <td>不用 Memory</td>
+        <td>下次会话重复讨论</td>
+        <td>决策后立即写入</td>
+      </tr>
+      <tr>
+        <td><span class="tag amber">6</span></td>
+        <td>Review 只看代码不看逻辑</td>
+        <td>漏掉设计问题</td>
+        <td>对照 PRD/Arch 审查</td>
+      </tr>
+      <tr>
+        <td><span class="tag amber">7</span></td>
+        <td>不写验收标准</td>
+        <td>不知道何时完成</td>
+        <td>PRD 就写好</td>
+      </tr>
+      <tr>
+        <td><span class="tag amber">8</span></td>
+        <td>忽视测试</td>
+        <td>回归 Bug 频发</td>
+        <td>实现后立即生成测试</td>
+      </tr>
+      <tr>
+        <td><span class="tag amber">9</span></td>
+        <td>过度依赖 AI</td>
+        <td>不理解的代码也合入</td>
+        <td>每行代码都要理解</td>
+      </tr>
+      <tr>
+        <td><span class="tag amber">10</span></td>
+        <td>CLAUDE.md 从不更新</td>
+        <td>规则过时，AI 退化</td>
+        <td>每次踩坑后更新</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="callout warn">
+    <strong>一句话总结</strong><br>
+    AI Coding 的质量，<strong>80% 取决于你给它设计的工作环境</strong>，20% 取决于你的 Prompt。模型反而是最小的变量。
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+</script>
+
+</body>
+</html>
