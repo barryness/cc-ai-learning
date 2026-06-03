@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Agent 学习 —— 多 Agent 协作架构</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a;
+    --text: #c9d1d9; --muted: #8b949e; --accent: #3fb950;
+    --green: #3fb950; --orange: #d2991d; --red: #f85149;
+    --purple: #a371f7; --cyan: #39c5cf; --amber: #f0883e;
+    --teal: #2dd4bf;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7;
+  }
+  .hero {
+    background: linear-gradient(135deg, #1a1d27 0%, #162818 50%, #111827 100%);
+    border-bottom: 1px solid var(--border); padding: 60px 24px 48px; text-align: center;
+  }
+  .hero h1 { font-size: 2.6em; background: linear-gradient(135deg, #3fb950, #2dd4bf); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+  .hero p { color: var(--muted); font-size: 1.1em; max-width: 700px; margin: 0 auto; }
+
+  .tabs {
+    display: flex; gap: 2px; background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 0 24px; position: sticky; top: 0; z-index: 10; overflow-x: auto;
+  }
+  .tab-btn {
+    background: none; border: none; color: var(--muted); padding: 14px 16px;
+    font-size: .89em; cursor: pointer; border-bottom: 2px solid transparent;
+    transition: .2s; font-family: inherit; white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--green); border-bottom-color: var(--green); }
+  .tab-content { display: none; padding: 40px 24px; max-width: 1000px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 28px; margin-bottom: 24px;
+  }
+  .card h3 { font-size: 1.2em; margin-bottom: 12px; color: #e6edf3; }
+  .card h4 { font-size: 1.05em; margin: 16px 0 8px; color: #d0d7de; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  @media (max-width: 768px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
+
+  .callout {
+    border-left: 3px solid var(--accent); background: rgba(63, 185, 80, 0.08);
+    padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 16px 0; font-size: .93em;
+  }
+  .callout.info { border-left-color: var(--cyan); background: rgba(57, 197, 207, 0.08); }
+  .callout.warn { border-left-color: var(--orange); background: rgba(210, 153, 29, 0.08); }
+  .callout.good { border-left-color: var(--green); background: rgba(63, 185, 80, 0.08); }
+
+  code {
+    background: #12151a; padding: 2px 7px; border-radius: 4px;
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: .88em; color: #3fb950;
+  }
+  pre {
+    background: #12151a; border: 1px solid var(--border); border-radius: 8px;
+    padding: 20px; overflow-x: auto; font-size: .85em; line-height: 1.6;
+  }
+  pre code { background: none; padding: 0; color: var(--text); }
+
+  .flow {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;
+    padding: 20px; font-size: .9em;
+  }
+  .flow-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; text-align: center;
+  }
+  .flow-box.highlight { border-color: var(--green); background: rgba(63, 185, 80, 0.1); }
+  .flow-arrow { color: var(--muted); font-size: 1.2em; }
+
+  .agent-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px; text-align: center;
+  }
+  .agent-card.pm { border-top: 3px solid var(--cyan); }
+  .agent-card.arch { border-top: 3px solid var(--purple); }
+  .agent-card.coder { border-top: 3px solid var(--amber); }
+  .agent-card.review { border-top: 3px solid var(--red); }
+  .agent-card .icon { font-size: 2em; margin-bottom: 8px; }
+  .agent-card .role { font-weight: 700; font-size: 1.05em; }
+  .agent-card .desc { color: var(--muted); font-size: .85em; margin-top: 6px; }
+
+  .tag {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: .8em; margin: 2px 4px;
+  }
+  .tag.green { background: rgba(63, 185, 80, 0.15); color: var(--green); }
+  .tag.purple { background: rgba(163, 113, 247, 0.15); color: var(--purple); }
+  .tag.cyan { background: rgba(57, 197, 207, 0.15); color: var(--cyan); }
+  .tag.amber { background: rgba(240, 136, 62, 0.15); color: var(--amber); }
+  .tag.red { background: rgba(248, 81, 73, 0.15); color: var(--red); }
+
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: .92em; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: .85em; text-transform: uppercase; }
+  td { vertical-align: top; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .step-row {
+    display: flex; align-items: center; gap: 12px; padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .step-num {
+    min-width: 28px; height: 28px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; font-weight: 700; font-size: .85em;
+  }
+  .step-num.s { background: rgba(57, 197, 207, 0.15); color: var(--cyan); }
+  .step-num.a { background: rgba(163, 113, 247, 0.15); color: var(--purple); }
+  .step-num.c { background: rgba(240, 136, 62, 0.15); color: var(--amber); }
+  .step-num.r { background: rgba(248, 81, 73, 0.15); color: var(--red); }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>Multi-Agent：多智能体协作架构</h1>
+  <p>PM + Architect + Coder + Reviewer —— 四个 Agent 分工协作，完成软件开发项目</p>
+</div>
+
+<div class="tabs" id="tabBar">
+  <button class="tab-btn active" data-tab="why">Why Multi-Agent</button>
+  <button class="tab-btn" data-tab="roles">职责划分</button>
+  <button class="tab-btn" data-tab="communication">通信与状态</button>
+  <button class="tab-btn" data-tab="supervisor">Supervisor 模式</button>
+  <button class="tab-btn" data-tab="conflict">冲突解决</button>
+  <button class="tab-btn" data-tab="workflow">协作流程</button>
+  <button class="tab-btn" data-tab="compare">框架对比</button>
+</div>
+
+<!-- Tab 1: Why Multi-Agent -->
+<div class="tab-content active" id="tab-why">
+  <div class="card">
+    <h3>单 Agent 的天花板</h3>
+    <div class="grid-2">
+      <div>
+        <h4 style="color: var(--red);">单 Agent 的问题</h4>
+        <ul style="padding-left:1.2em; color:var(--muted); line-height:2.2;">
+          <li>Prompt 过长 —— 所有能力塞进一个 System Prompt</li>
+          <li>上下文污染 —— 多种视角混在一起，注意力分散</li>
+          <li>难以维护 —— 改一处可能影响全局行为</li>
+          <li>质量上限 —— 只有一个 LLM 的视角，没有互相审查</li>
+        </ul>
+      </div>
+      <div>
+        <h4 style="color: var(--green);">Multi-Agent 的优势</h4>
+        <ul style="padding-left:1.2em; color:var(--muted); line-height:2.2;">
+          <li>✅ 分工明确 —— 每个 Agent 只专注一件事</li>
+          <li>✅ Prompt 简短 —— 每个 Agent 只看相关信息</li>
+          <li>✅ 独立迭代 —— 改一个不影响其他</li>
+          <li>✅ 互相审查 —— Reviewer 发现 Coder 的问题</li>
+          <li>✅ 线性扩展 —— 加功能 = 加 Agent</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>四种 Agent 协作</h3>
+    <div class="grid-4">
+      <div class="agent-card pm">
+        <div class="icon">📋</div>
+        <div class="role">PM Agent</div>
+        <div class="desc">需求分析<br>任务拆解<br>优先级排序</div>
+        <span class="tag cyan">分析层</span>
+      </div>
+      <div class="agent-card arch">
+        <div class="icon">🏗️</div>
+        <div class="role">Architect Agent</div>
+        <div class="desc">技术选型<br>数据模型<br>接口设计</div>
+        <span class="tag purple">设计层</span>
+      </div>
+      <div class="agent-card coder">
+        <div class="icon">💻</div>
+        <div class="role">Coder Agent</div>
+        <div class="desc">代码实现<br>异常处理<br>可运行交付</div>
+        <span class="tag amber">实现层</span>
+      </div>
+      <div class="agent-card review">
+        <div class="icon">🔍</div>
+        <div class="role">Reviewer Agent</div>
+        <div class="desc">质量审查<br>需求覆盖<br>安全检测</div>
+        <span class="tag red">质量层</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab 2: 职责划分 -->
+<div class="tab-content" id="tab-roles">
+  <div class="card">
+    <h3>单一职责原则</h3>
+    <p style="color:var(--muted); margin-bottom:16px;">
+      每个 Agent 只做一件事，System Prompt 明确禁止越界。
+    </p>
+    <table>
+      <tr><th>维度</th><th>PM</th><th>Architect</th><th>Coder</th><th>Reviewer</th></tr>
+      <tr>
+        <td><strong>核心职责</strong></td>
+        <td><span class="tag cyan">需求分析</span></td>
+        <td><span class="tag purple">架构设计</span></td>
+        <td><span class="tag amber">代码实现</span></td>
+        <td><span class="tag red">质量审查</span></td>
+      </tr>
+      <tr>
+        <td><strong>输出物</strong></td>
+        <td>P0/P1/P2 任务列表</td>
+        <td>技术方案 + 数据模型 + API</td>
+        <td>可运行代码</td>
+        <td>评分 + approved/revise</td>
+      </tr>
+      <tr>
+        <td><strong>不能做</strong></td>
+        <td>设计架构、写代码</td>
+        <td>写代码</td>
+        <td>改架构</td>
+        <td>自己改代码</td>
+      </tr>
+      <tr>
+        <td><strong>System Prompt 关键指令</strong></td>
+        <td>"只拆解需求，不涉及技术选型"</td>
+        <td>"严格基于 PM 的任务列表"</td>
+        <td>"严格遵循架构设计"</td>
+        <td>"只指出问题，不修改代码"</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="callout info">
+    <strong>为什么 Architect 和 Coder 必须分开？</strong><br>
+    如果合并为一个 Agent，LLM 容易跳过架构思考直接写代码，导致结构混乱。强制分成两步，让架构决策显式化、可审查。
+  </div>
+</div>
+
+<!-- Tab 3: 通信与状态 -->
+<div class="tab-content" id="tab-communication">
+  <div class="card">
+    <h3>通信媒介：共享 State</h3>
+    <p style="color:var(--muted);">
+      所有 Agent 通过 State 通信。Agent 从 State 读取上游产出，完成后写入 State。State 就是"项目交接单"。
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>State 结构</h3>
+    <pre><code>class TeamState(TypedDict):
+    messages: list          # 消息流（add_messages reducer）
+    next_agent: str         # Supervisor 路由决策
+
+    # 各 Agent 产出（渐进填充）
+    requirement: str        # 用户输入
+    task_breakdown: str     # PM → 任务列表
+    architecture: str       # Architect → 架构设计
+    code: str               # Coder → 代码
+
+    # Reviewer 产出
+    review_result: str      # "approved" / "revise"
+    review_feedback: str    # 具体意见
+
+    # 循环控制
+    revision_count: int     # 防无限循环
+    back_to_architect: bool # 问题在架构层还是代码层</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>State 演进过程</h3>
+    <div class="step-row"><span class="step-num s">0</span> <span style="color:var(--muted)">{} → requirement 有值，其他字段空</span></div>
+    <div class="step-row"><span class="step-num s">1</span> <span style="color:var(--cyan)">PM 写入</span> task_breakdown</div>
+    <div class="step-row"><span class="step-num a">2</span> <span style="color:var(--purple)">Architect 写入</span> architecture</div>
+    <div class="step-row"><span class="step-num c">3</span> <span style="color:var(--amber)">Coder 写入</span> code</div>
+    <div class="step-row"><span class="step-num r">4</span> <span style="color:var(--red)">Reviewer 写入</span> review_result + feedback</div>
+    <div class="step-row"><span class="step-num r">5</span> <span style="color:var(--muted)">revise? → Coder 修改 code，revision_count++</span></div>
+    <div class="step-row"><span class="step-num s">6</span> <span style="color:var(--green)">approved → Supervisor → FINISH</span></div>
+  </div>
+</div>
+
+<!-- Tab 4: Supervisor 模式 -->
+<div class="tab-content" id="tab-supervisor">
+  <div class="card">
+    <h3>Supervisor = 动态路由器</h3>
+    <p style="color:var(--muted);">
+      Supervisor 不做具体工作，只决策"下一步派谁"。它不是硬编码的 if-else，而是让 LLM 根据 State 状态做路由决策。
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>图结构</h3>
+    <pre><code>                    ┌──────────────────┐
+                    │    Supervisor    │
+                    │  (LLM 路由决策)   │
+                    └────────┬─────────┘
+                             │
+       ┌─────────────────────┼─────────────────────┐
+       │                     │                     │
+       ▼                     ▼                     ▼
+  ┌─────────┐          ┌─────────┐          ┌─────────┐
+  │   PM    │          │Architect│          │  Coder  │
+  └────┬────┘          └────┬────┘          └────┬────┘
+       │                    │                    │
+       └────────────────────┴────────────────────┤
+                                                 ▼
+                                          ┌─────────┐
+                                          │Reviewer │
+                                          └────┬────┘
+                                               │
+                                     ┌─────────┴─────────┐
+                                     │                   │
+                                approved              revise
+                                     │                   │
+                                     ▼                   ▼
+                                   END           Coder/Architect
+                                                  │
+                                                  ▼
+                                             Supervisor</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Supervisor 决策规则</h3>
+    <table>
+      <tr><th>条件</th><th>→ 决策</th></tr>
+      <tr><td>task_breakdown 为空</td><td><span class="tag cyan">pm</span></td></tr>
+      <tr><td>有任务、architecture 为空</td><td><span class="tag purple">architect</span></td></tr>
+      <tr><td>有架构、code 为空</td><td><span class="tag amber">coder</span></td></tr>
+      <tr><td>有代码、未审查</td><td><span class="tag red">reviewer</span></td></tr>
+      <tr><td>revise + revision_count &lt; 3</td><td><span class="tag amber">coder</span> 或 <span class="tag purple">architect</span></td></tr>
+      <tr><td>approved 或 revision_count >= 3</td><td><span class="tag green">FINISH</span></td></tr>
+    </table>
+  </div>
+
+  <div class="callout good">
+    <strong>为什么不用固定顺序流水线？</strong><br>
+    固定流水线（PM→Arch→Coder→Review→END）无法处理 Reviewer 打回修改的场景。<br>
+    Supervisor 模式天然支持循环和条件跳转，这是 LangGraph 胜过 LangChain LCEL 的关键能力。
+  </div>
+</div>
+
+<!-- Tab 5: 冲突解决 -->
+<div class="tab-content" id="tab-conflict">
+  <div class="card">
+    <h3>Multi-Agent 中的典型冲突</h3>
+    <table>
+      <tr><th>冲突</th><th>场景</th><th>解决机制</th></tr>
+      <tr>
+        <td>Reviwer ↔ Coder</td>
+        <td>Reviewer 反复打回，Coder 反复修改</td>
+        <td><span class="tag red">revision_count &lt; 3</span> 上限保护</td>
+      </tr>
+      <tr>
+        <td>Architect 越界</td>
+        <td>架构设计超出了 PM 任务范围</td>
+        <td><span class="tag purple">Reviewer 对照</span> task_breakdown 校验</td>
+      </tr>
+      <tr>
+        <td>Coder 质疑架构</td>
+        <td>Coder 发现架构问题但不能改</td>
+        <td><span class="tag amber"># [疑问] 注释</span> → Reviewer 判断是否退回 Architect</td>
+      </tr>
+      <tr>
+        <td>标准分歧</td>
+        <td>"好的代码"见仁见智</td>
+        <td><span class="tag green">3 轮后自动通过</span> Stop-the-World 机制</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>三层冲突解决</h3>
+    <div style="text-align:center; padding: 24px;">
+      <div class="flow-box highlight" style="display:inline-block; margin: 8px;">
+        <strong>第一层：预防</strong><br>
+        <span style="font-size:.85em; color:var(--muted)">System Prompt 明确边界<br>90% 冲突在源头消除</span>
+      </div>
+      <div style="color:var(--muted); margin:8px;">↓</div>
+      <div class="flow-box" style="display:inline-block; margin:8px; border-color:var(--purple);">
+        <strong>第二层：仲裁</strong><br>
+        <span style="font-size:.85em; color:var(--muted)">Reviewer 统一标准裁决<br>9% 冲突有规则可依</span>
+      </div>
+      <div style="color:var(--muted); margin:8px;">↓</div>
+      <div class="flow-box" style="display:inline-block; margin:8px; border-color:var(--red);">
+        <strong>第三层：强制终止</strong><br>
+        <span style="font-size:.85em; color:var(--muted)">revision_count >= 3 停止<br>1% 死锁自动解除</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab 6: 协作流程 -->
+<div class="tab-content" id="tab-workflow">
+  <div class="card">
+    <h3>完整协作示例</h3>
+    <p style="color:var(--muted); margin-bottom:16px;">用户输入: "开发一个用户管理系统，支持注册、登录、查询个人信息"</p>
+
+    <div class="step-row"><span class="step-num s">R1</span> <strong>Supervisor → PM</strong> <span style="color:var(--muted); margin-left:8px;">没有任务列表，先分析需求</span></div>
+    <div class="step-row" style="padding-left:52px; font-size:.9em; color:var(--cyan);">
+      PM 产出: P0 注册/登录/查询 | P1 密码重置 | P2 角色权限
+    </div>
+
+    <div class="step-row"><span class="step-num s">R2</span> <strong>Supervisor → Architect</strong> <span style="color:var(--muted); margin-left:8px;">有任务、无架构</span></div>
+    <div class="step-row" style="padding-left:52px; font-size:.9em; color:var(--purple);">
+      Architect 产出: FastAPI + SQLite + JWT | User(id,username,password_hash) | POST /register, /login, GET /users/me
+    </div>
+
+    <div class="step-row"><span class="step-num s">R3</span> <strong>Supervisor → Coder</strong> <span style="color:var(--muted); margin-left:8px;">有架构、无代码</span></div>
+    <div class="step-row" style="padding-left:52px; font-size:.9em; color:var(--amber);">
+      Coder 产出: 完整 Python 代码（FastAPI app + models + routers ~100行）
+    </div>
+
+    <div class="step-row"><span class="step-num s">R4</span> <strong>Supervisor → Reviewer</strong> <span style="color:var(--muted); margin-left:8px;">有代码、未审查</span></div>
+    <div class="step-row" style="padding-left:52px; font-size:.9em; color:var(--red);">
+      Reviewer: 评分 6/10, revise — "密码未 hash，/users/me 缺少认证校验"
+    </div>
+
+    <div class="step-row"><span class="step-num s">R5</span> <strong>Supervisor → Coder</strong> <span style="color:var(--muted); margin-left:8px;">修改意见 + revision_count=0</span></div>
+    <div class="step-row" style="padding-left:52px; font-size:.9em; color:var(--amber);">
+      Coder 修改: 添加 passlib hash + JWT 依赖注入认证
+    </div>
+
+    <div class="step-row"><span class="step-num s">R6</span> <strong>Supervisor → Reviewer</strong> <span style="color:var(--muted); margin-left:8px;">重新审查</span></div>
+    <div class="step-row" style="padding-left:52px; font-size:.9em; color:var(--green);">
+      Reviewer: 评分 9/10, approved ✓
+    </div>
+
+    <div class="step-row"><span class="step-num s">R7</span> <strong>Supervisor → FINISH</strong> <span style="color:var(--green); margin-left:8px;">审查通过，交付项目</span></div>
+  </div>
+</div>
+
+<!-- Tab 7: 框架对比 -->
+<div class="tab-content" id="tab-compare">
+  <div class="card">
+    <h3>Multi-Agent 框架对比</h3>
+    <table>
+      <tr><th>框架</th><th>协调方式</th><th>灵活度</th><th>学习曲线</th><th>适用场景</th></tr>
+      <tr>
+        <td><span class="tag green">LangGraph</span></td>
+        <td>显式图 + State + Supervisor</td>
+        <td>最高</td>
+        <td>中</td>
+        <td>需要精细控制流程、循环依赖</td>
+      </tr>
+      <tr>
+        <td><span class="tag purple">CrewAI</span></td>
+        <td>预定义 Crew/Task 抽象</td>
+        <td>中</td>
+        <td>低</td>
+        <td>快速搭建多 Agent 原型</td>
+      </tr>
+      <tr>
+        <td><span class="tag amber">AutoGen</span></td>
+        <td>对话驱动、GroupChat</td>
+        <td>中</td>
+        <td>中</td>
+        <td>对话式协作、研究讨论</td>
+      </tr>
+      <tr>
+        <td><span class="tag cyan">OpenAI Swarm</span></td>
+        <td>函数路由、handoff</td>
+        <td>低</td>
+        <td>低</td>
+        <td>简单任务分发、Demo</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>本项目为什么选 LangGraph</h3>
+    <ul style="padding-left:1.2em; color:var(--muted); line-height:2.2;">
+      <li><strong>Reviewer 循环</strong> —— 修改后重新审查，LangChain LCEL 做不到</li>
+      <li><strong>条件路由</strong> —— Supervisor 根据 State 灵活决策，不是固定顺序</li>
+      <li><strong>State 可见</strong> —— 每一步的状态都可追踪，方便调试</li>
+      <li><strong>可扩展</strong> —— 加 Agent 只需加 Node + 更新 Supervisor 的决策规则</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>学习路径</h3>
+    <pre><code>009-agent-learning (单 Agent 基础)
+         │
+         ▼
+007-langgraph-learning (StateGraph + Supervisor 模式)
+         │
+         ▼
+010-multi-agent-learning (本模块: 4 Agent 协作)
+         │
+         ▼
+    未来: 真实工具集成 (GitHub API, 文件系统, Docker)
+         评估体系 (自动化测试, 性能基准)
+         人机协作 (Human-in-the-Loop)</code></pre>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+</script>
+
+</body>
+</html>
